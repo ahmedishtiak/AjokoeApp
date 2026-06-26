@@ -1,0 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#06101F" />
+<title>Ajokoe — Finnish Driving Theory Trainer</title>
+<meta name="description" content="Practice for the Finnish driving theory test (Traficom): 100+ traffic-situation sketches, 100+ multiple-choice, risk identification, road-sign gallery, and a taxi entrepreneur exam." />
+<style>
+  html,body{margin:0;padding:0;background:#06101F;min-height:100%}
+  #root{min-height:100vh}
+  #boot{position:fixed;inset:0;display:grid;place-items:center;background:#06101F;color:#9DB4CE;
+    font-family:system-ui,-apple-system,sans-serif;z-index:9999;transition:opacity .4s}
+  #boot .t{font-weight:800;font-size:30px;color:#F2F7FC;letter-spacing:-.02em}
+  #boot .d{color:#FF6A1A}
+  #boot .s{margin-top:8px;font-size:13px;letter-spacing:.2em;text-transform:uppercase}
+  .spin{margin-top:18px;width:30px;height:30px;border:3px solid #21406a;border-top-color:#FF6A1A;border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="boot"><div style="text-align:center">
+  <div class="t">Ajokoe<span class="d">.</span></div>
+  <div class="s">Loading…</div>
+  <div class="spin" style="margin:18px auto 0"></div>
+</div></div>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useRef, useMemo } = React;
+
+
+
+/* ===================== AJOKOE DATA ===================== */
+
+/* ---------- 1) MULTIPLE-CHOICE (100+) ---------- */
+const MCQ = [
+  // Priority / right of way
+  { t: "Priority", q: "At an unmarked intersection with no signs or lights, a vehicle approaches from your right. Who has priority?", o: ["You", "The vehicle from your right", "The larger vehicle"], a: 1, w: "Right-hand rule: with no signs or signals, give way to traffic from the right — even if your road looks bigger." },
+  { t: "Priority", q: "A downward-pointing triangle (red border) requires you to:", o: ["Always stop fully", "Give way to traffic on the crossing road", "Do nothing"], a: 1, w: "It is GIVE WAY: slow and yield; stop only if traffic requires. Unlike STOP you may keep rolling when clear." },
+  { t: "Priority", q: "At a red octagonal STOP sign you must:", o: ["Slow and roll through if clear", "Stop fully behind the line, then give way", "Stop only if a car is coming"], a: 1, w: "STOP means a complete stop every time, behind the line, then give way before proceeding." },
+  { t: "Priority", q: "You are on a priority road (yellow diamond). A car waits at a side road to your right. Who goes first?", o: ["You", "The car on the right", "You must yield right"], a: 0, w: "The priority-road sign overrides the right-hand rule; side-road traffic gives way to you." },
+  { t: "Priority", q: "Turning left across oncoming traffic, you must:", o: ["Force your way through", "Give way to oncoming vehicles going straight", "Expect them to stop"], a: 1, w: "A left turn yields to oncoming traffic proceeding straight and to pedestrians crossing the road you enter." },
+  { t: "Priority", q: "At a junction controlled only by an 'intersection with minor road' (priority) sign, you should:", o: ["Slow right down and yield", "Continue, you have priority", "Stop completely"], a: 1, w: "That sign tells you the crossing road is minor; you keep priority but stay alert for those who should yield." },
+
+  // Roundabouts
+  { t: "Roundabouts", q: "Entering a roundabout with a car already circulating, you:", o: ["Enter ahead of it", "Give way to traffic inside", "Race the gap"], a: 1, w: "Traffic already in the roundabout has priority; you give way on entry." },
+  { t: "Roundabouts", q: "When should you signal in a roundabout?", o: ["Left on entry", "Right just before your exit", "Never"], a: 1, w: "No entry signal needed. Signal right just before leaving so others can read your move." },
+  { t: "Roundabouts", q: "Taking the third exit of a multi-lane roundabout, approach in:", o: ["Outer/right lane", "Inner/left lane, then move out before the exit", "Any lane"], a: 1, w: "Later exits: use the inner lane on approach, then move out and signal right before leaving. Early exits use the outer lane." },
+  { t: "Roundabouts", q: "A cyclist is circulating in the roundabout as you wait to enter. You:", o: ["Enter first", "Give way to the cyclist", "Sound the horn"], a: 1, w: "Cyclists in the roundabout have the same priority as other traffic; give way." },
+
+  // Traffic lights
+  { t: "Traffic lights", q: "A signal flashes yellow continuously. It means:", o: ["Faulty — treat as all-way stop", "Caution; normal priority rules apply", "Stop and wait for green"], a: 1, w: "Flashing yellow = uncontrolled but operating. Slow, watch, apply right-hand rule. Common at quiet times." },
+  { t: "Traffic lights", q: "Red and yellow show together. You should:", o: ["Go now", "Stay stopped, green is coming", "Stop only if safe"], a: 1, w: "Red+yellow is the 'get ready' phase. Remain stopped until green." },
+  { t: "Traffic lights", q: "Solid yellow appears as you approach. You should:", o: ["Accelerate to beat red", "Stop if you safely can", "Keep speed regardless"], a: 1, w: "Yellow means stop if safe; continue only if stopping would be unsafe." },
+  { t: "Traffic lights", q: "A green arrow shows right while the main light is red. You may:", o: ["Go any direction", "Turn right only, giving way", "Not move"], a: 1, w: "A green arrow permits only that direction and you still give way to pedestrians and crossing traffic." },
+  { t: "Traffic lights", q: "A police officer directs traffic where lights also operate. You follow:", o: ["The lights", "The officer's signals", "Whichever is easier"], a: 1, w: "A traffic controller's signals override traffic lights and signs." },
+
+  // Speed
+  { t: "Speed limits", q: "No sign is posted inside a built-up area (taajama). Default limit:", o: ["30", "50", "80"], a: 1, w: "The built-up-area sign sets 50 km/h by default." },
+  { t: "Speed limits", q: "Outside built-up areas with no posted limit, the default is:", o: ["60", "80", "100"], a: 1, w: "Rural default is 80 km/h; reduce for conditions." },
+  { t: "Speed limits", q: "A motorway shows 120 in summer. In winter it is typically:", o: ["120", "100", "130"], a: 1, w: "Motorway limits commonly drop to 100 km/h in winter." },
+  { t: "Speed limits", q: "Near children at a school with no number posted, drive about:", o: ["50", "30", "10"], a: 1, w: "Adapt to conditions; children present means roughly 30 km/h." },
+  { t: "Speed limits", q: "Serious speeding fines in Finland are large because they are:", o: ["Flat", "Day-fines scaled to income", "Always €115"], a: 1, w: "Serious cases use income-scaled day-fines; minor cases get a fixed fine." },
+  { t: "Speed limits", q: "A speed-limit sign applies until:", o: ["The next junction only", "A new limit, an end sign, or area sign changes it", "You leave the road"], a: 1, w: "A posted limit holds until changed by another limit, an end sign, or an area sign." },
+  { t: "Speed limits", q: "In a residential 'living street' (pihakatu), the limit is essentially:", o: ["50", "Walking pace, max 20", "30"], a: 1, w: "On a living street you drive at walking pace (max ~20 km/h) and give way to pedestrians and play." },
+
+  // Winter
+  { t: "Winter driving", q: "On black ice at 80 km/h, stopping distance vs dry road is about:", o: ["The same", "Twice", "Three to four times"], a: 2, w: "Ice gives little grip; stopping grows 3–4×, and ABS cannot beat physics." },
+  { t: "Winter driving", q: "Studded tyres are permitted roughly during:", o: ["All year", "1 Nov – 31 Mar (and when conditions need)", "December only"], a: 1, w: "Studded tyres allowed ~1 Nov–31 Mar and outside it when weather requires." },
+  { t: "Winter driving", q: "Skidding while braking on ice, you should:", o: ["Brake harder", "Ease off, keep wheels rolling, steer to target", "Pull handbrake"], a: 1, w: "Release pressure, keep wheels turning, steer smoothly where you want to go." },
+  { t: "Winter driving", q: "Black ice forms first on:", o: ["Long straights", "Bridges and shaded sections", "Car parks"], a: 1, w: "Bridges and shade lose heat fastest and ice first, often looking merely wet." },
+  { t: "Winter driving", q: "In heavy snow with poor visibility you should:", o: ["Hold the limit", "Lower speed and increase the gap ahead", "Use full beam"], a: 1, w: "Slow below the limit, leave a big gap; full beam dazzles you off snow." },
+  { t: "Winter driving", q: "Winter tyres on a car under 3.5 t must have a tread depth of at least:", o: ["1.6 mm", "3.0 mm", "5.0 mm"], a: 1, w: "Winter tyres require at least 3.0 mm tread (summer tyres 1.6 mm) for grip in snow." },
+
+  // Markings / overtaking
+  { t: "Road markings", q: "A solid centre line behind a slow tractor. Overtake?", o: ["Yes, tractors exempt", "Yes if you see ahead", "No — a solid line must not be crossed"], a: 2, w: "A solid centre line forbids crossing/overtaking; wait for a dashed section." },
+  { t: "Road markings", q: "A dashed centre line indicates:", o: ["Overtaking allowed when safe", "No overtaking", "Parking lane"], a: 0, w: "Dashed permits overtaking when safe." },
+  { t: "Road markings", q: "A solid line beside a dashed line means:", o: ["Nobody overtakes", "You may overtake if the dashed line is on your side", "Trucks only"], a: 1, w: "Cross by the nearest line: dashed on your side = may overtake." },
+  { t: "Road markings", q: "A yellow line along the kerb usually means:", o: ["Wide parking", "Stopping/parking restriction", "Cycle lane"], a: 1, w: "Yellow kerb markings mark stopping or parking restrictions." },
+  { t: "Overtaking", q: "Overtaking is normally done on the:", o: ["Right", "Left", "Either on motorways"], a: 1, w: "Overtake on the left; right-side passing only in specific cases (vehicle turning left, queued lanes)." },
+  { t: "Overtaking", q: "A car behind is already overtaking you as you plan to pull out. You:", o: ["Overtake first", "Let it pass before you move", "Block it"], a: 1, w: "Check mirrors/blind spot; if someone is overtaking you, let them finish first." },
+  { t: "Overtaking", q: "You may not overtake:", o: ["Only where signed", "At crossings, hill crests, bends, junctions, or where view is limited", "Never rurally"], a: 1, w: "Beyond signs, never overtake where sight is restricted." },
+  { t: "Overtaking", q: "You may pass on the right when:", o: ["Never", "The vehicle ahead is turning left and there is room", "Always in town"], a: 1, w: "Passing on the right is allowed when the vehicle ahead signals and moves to turn left, or in slow parallel-lane traffic." },
+
+  // Pedestrians / cyclists / trams
+  { t: "Pedestrians", q: "A pedestrian is approaching a zebra crossing ahead. You:", o: ["Continue", "Stop and let them cross", "Honk"], a: 1, w: "Give way to anyone at or approaching a crossing; stop first." },
+  { t: "Pedestrians", q: "A tram stops with no boarding island; passengers step onto the road. You:", o: ["Pass slowly on the left", "Stop until all are clear", "Honk and pass"], a: 1, w: "With no island, passengers cross your lane — stop fully until clear." },
+  { t: "Pedestrians", q: "A blind person with a white cane steps toward the crossing. You:", o: ["Expect them to wait", "Always stop and give way", "Sound the horn"], a: 1, w: "Always give way to a pedestrian with a white cane or guide dog; they may not see you." },
+  { t: "Cyclists", q: "Turning right with a cycle lane on your right, before turning you:", o: ["Turn immediately", "Check for and give way to cyclists going straight", "Speed up"], a: 1, w: "A cyclist going straight in the cycle lane has priority; check your right and mirror before turning across it." },
+  { t: "Cyclists", q: "Overtaking a cyclist, you should leave:", o: ["Any gap", "Ample side clearance, more at speed", "Less than a metre"], a: 1, w: "Pass wide and slow; cyclists wobble and react to wind, surface, and gusts from your vehicle." },
+  { t: "Cyclists", q: "At a cycle crossing as you turn, the cyclist already crossing has:", o: ["No priority", "Priority — give way", "Equal, so push on"], a: 1, w: "Treat a cycle crossing like a pedestrian crossing when turning: give way." },
+
+  // Emergencies
+  { t: "Emergencies", q: "An emergency vehicle (blue lights, siren) is behind you; red light ahead. You:", o: ["Move right and stop, even on red", "Run the red to clear it", "Hold your lane"], a: 0, w: "Move right and stop; stopping on red here is lawful and required. Running it risks a blocking crash." },
+  { t: "Emergencies", q: "Which flashing colour means give way?", o: ["Amber", "Blue", "Green"], a: 1, w: "Blue = emergency services; give way. Amber marks slow/maintenance vehicles." },
+  { t: "Emergencies", q: "After a breakdown where your car endangers traffic, you must:", o: ["Hazard lights only", "Place a warning triangle and use hazards", "Wait inside"], a: 1, w: "A warning triangle is compulsory; hazards alone aren't enough. Set it at a safe distance." },
+  { t: "Emergencies", q: "At the scene of an accident with injuries, your first duty is to:", o: ["Photograph it", "Stop, secure the scene, help and call 112", "Drive on if not involved"], a: 1, w: "Stop, make the scene safe, give first aid as able, and call the emergency number 112." },
+
+  // Motorway
+  { t: "Motorway", q: "A car merges from a ramp on your right while you're in the right lane. Who yields?", o: ["You", "The merging car", "Neither"], a: 1, w: "Joining traffic gives way to traffic already on the motorway; moving left when safe is courteous." },
+  { t: "Motorway", q: "On a motorway you should normally drive in:", o: ["Any lane", "The right lane, left only to overtake", "The left lane"], a: 1, w: "Keep right; use the left lane only to overtake, then return." },
+  { t: "Motorway", q: "Stopping or reversing on the motorway carriageway is:", o: ["Allowed briefly", "Prohibited except a genuine emergency (use the shoulder)", "Fine in light traffic"], a: 1, w: "Never stop or reverse on the carriageway; pull onto the hard shoulder in trouble." },
+  { t: "Motorway", q: "The minimum speed principle on a motorway means:", o: ["No minimum", "Vehicles unable to keep a reasonable speed may not use it", "Everyone must do 120"], a: 1, w: "Slow vehicles (e.g. mopeds, tractors) are banned; you must be able to maintain motorway speeds safely." },
+
+  // Driver conduct
+  { t: "Driver conduct", q: "Finland's general blood-alcohol limit is:", o: ["0.2‰", "0.5‰", "0.8‰"], a: 1, w: "Limit 0.5‰; above 1.2‰ is aggravated. Random breath tests are routine." },
+  { t: "Driver conduct", q: "Two hours after two beers you feel fine. Certainly under the limit?", o: ["Yes", "Not necessarily — clearance varies", "Yes, feeling proves it"], a: 1, w: "Clearance varies with weight, food and metabolism; 'feeling fine' is unreliable." },
+  { t: "Driver conduct", q: "Handheld mobile phone use while driving is:", o: ["OK at lights", "Prohibited; hands-free only", "OK for short calls"], a: 1, w: "Handheld use is banned; set up navigation and audio before moving." },
+  { t: "Driver conduct", q: "Seatbelts must be worn:", o: ["Front only", "Every seat, front and back", "Driver only"], a: 1, w: "Everyone belts up in every seat; the driver ensures children are restrained." },
+  { t: "Driver conduct", q: "Dipped headlights must be on:", o: ["Night only", "Bad weather only", "Always when driving, day and night"], a: 2, w: "Daytime/dipped lights are mandatory whenever you drive." },
+  { t: "Driver conduct", q: "Sounding the horn in towns is:", o: ["Encouraged", "Only to prevent immediate danger", "OK below 50"], a: 1, w: "In built-up areas the horn is only for immediate danger." },
+  { t: "Driver conduct", q: "Hazard warning lights are mainly for:", o: ["Convenience", "When stationary and causing danger, or warning of a sudden hazard", "Driving in rain"], a: 1, w: "They signal your vehicle is a hazard, chiefly when stopped where it endangers others." },
+  { t: "Driver conduct", q: "Feeling drowsy on a long winter drive, you should:", o: ["Open a window and push on", "Take a break, rest or swap", "Drive faster"], a: 1, w: "Fatigue impairs like alcohol; stop and rest — fresh air alone doesn't fix it." },
+  { t: "Driver conduct", q: "A child under 135 cm generally must use:", o: ["An adult belt", "A suitable child restraint/booster", "Nothing in the back"], a: 1, w: "Children shorter than ~135 cm need an appropriate child seat or booster suited to their size." },
+  { t: "Driver conduct", q: "Full-beam headlights must be dipped when:", o: ["Never", "Meeting oncoming traffic or following closely", "Only in towns"], a: 1, w: "Dip for oncoming vehicles and when close behind another car to avoid dazzling drivers." },
+  { t: "Driver conduct", q: "Medication that causes drowsiness and driving:", o: ["Is always fine", "May impair you like alcohol — check warnings", "Only matters at night"], a: 1, w: "Some medicines impair reactions; heed warnings and don't drive if affected." },
+
+  // Signs (text)
+  { t: "Road signs", q: "A blue circle with a white arrow means you:", o: ["May go that way", "Must go in the arrow's direction", "Enter a one-way street"], a: 1, w: "Blue circles are mandatory; the arrow is the only permitted direction." },
+  { t: "Road signs", q: "In Finland, speed-limit and most prohibitory signs have which background?", o: ["White, red border", "Yellow, red border", "Blue, white border"], a: 1, w: "Finnish quirk: prohibitory/speed signs use a YELLOW background with red border; no-parking/stopping are blue." },
+  { t: "Road signs", q: "A triangular sign with a red border warns of:", o: ["A prohibition", "A hazard ahead", "A mandatory action"], a: 1, w: "Triangles warn; prepare for the hazard shown." },
+  { t: "Road signs", q: "A blue circle, red border, one diagonal slash means:", o: ["No stopping", "No parking (brief stop OK)", "No entry"], a: 1, w: "One slash = no parking; two crossed slashes = no stopping at all." },
+  { t: "Road signs", q: "A round sign with two cars side by side (one red) means:", o: ["Two-way traffic", "No overtaking", "Car park"], a: 1, w: "It prohibits overtaking; the crossed-out version ends the restriction." },
+  { t: "Road signs", q: "A red circle with a single white horizontal bar means:", o: ["No entry for all vehicles", "One-way", "No waiting"], a: 0, w: "That sign forbids entry to all vehicles in that direction." },
+  { t: "Road signs", q: "A square blue sign with a white 'P' indicates:", o: ["Prohibition", "Parking permitted (subject to conditions)", "Police"], a: 1, w: "Blue square = information; the P shows parking is allowed, subject to any panels." },
+
+  // Parking
+  { t: "Parking", q: "'P 2h' with a disc symbol means you:", o: ["Pay a meter", "Set the parking disc to arrival; max 2 h", "Park free, no limit"], a: 1, w: "Set the disc to the next half-hour after arrival, display it, stay max 2 h." },
+  { t: "Parking", q: "'No parking' vs 'no stopping':", o: ["Same", "No-parking allows a brief load/drop-off; no-stopping forbids any pause", "No-stopping allows loading"], a: 1, w: "No-parking permits a brief halt to load/drop off; no-stopping means no pause at all." },
+  { t: "Parking", q: "A winter alternating/odd-even parking sign controls:", o: ["Car colour", "Which side to park by date, for snow ploughing", "Price"], a: 1, w: "It switches the legal side by date so ploughs can clear each side; wrong side risks towing." },
+  { t: "Parking", q: "You should not park:", o: ["Anywhere in town", "On or just before a pedestrian crossing", "On any hill"], a: 1, w: "Parking on/just before a crossing hides pedestrians; keep the approach clear." },
+  { t: "Parking", q: "Parking on the left side of a two-way street is:", o: ["Always fine", "Generally not allowed (park on the right)", "Only at night"], a: 1, w: "On two-way streets park on the right; left-side parking is generally prohibited." },
+
+  // Hazards / wildlife
+  { t: "Hazards", q: "A moose warning sign: risk is greatest:", o: ["Midday", "Dawn and dusk", "Summer only"], a: 1, w: "Moose move most at dawn and dusk; a 500 kg collision is often fatal — slow and scan." },
+  { t: "Hazards", q: "A moose suddenly crosses and you can't avoid it. Advice:", o: ["Swerve hard at speed", "Brake firmly straight, aim behind it", "Accelerate"], a: 1, w: "Brake hard straight; violent swerving risks rollover/oncoming. Animals move forward, so aim behind." },
+  { t: "Hazards", q: "Reindeer on a Lapland road should be treated as:", o: ["Fast-moving", "Unpredictable, often in groups — slow right down", "No hazard"], a: 1, w: "Reindeer wander and cluster; where there's one, more follow." },
+  { t: "Hazards", q: "Approaching an unguarded level crossing, you must:", o: ["Speed across", "Slow, look both ways, cross only when clear", "Rely on lights only"], a: 1, w: "At an unguarded crossing, reduce speed and check for trains both ways before crossing." },
+  { t: "Hazards", q: "Aquaplaning (hydroplaning) in heavy rain is best avoided by:", o: ["Speeding up", "Slowing down and keeping tyres in good tread", "Braking hard"], a: 1, w: "Lower speed and good tread keep tyres in contact; if it happens, ease off gently and steer straight." },
+
+  // General / eco / vehicle
+  { t: "General", q: "Low-emission, efficient driving is best achieved by:", o: ["Hard accel and late braking", "Smooth accel, anticipation, steady speeds", "High revs"], a: 1, w: "Read ahead, accelerate gently, hold steady speeds, ease off early — smoothness saves fuel and improves safety." },
+  { t: "General", q: "A passed Finnish theory test is valid for:", o: ["One month", "One year", "Five years"], a: 1, w: "Valid one year, within which you take the driving test." },
+  { t: "General", q: "Tailgating is dangerous mainly because it:", o: ["Saves no time", "Removes reaction and stopping space", "Uses fuel"], a: 1, w: "Close following leaves no room to react or brake, especially on ice." },
+  { t: "General", q: "The '3-second rule' for following distance should be:", o: ["Halved in winter", "At least doubled on slippery roads", "Ignored on motorways"], a: 1, w: "Leave 3 seconds in good conditions and much more on ice or in poor visibility." },
+  { t: "General", q: "Before a long drive you should check:", o: ["Only fuel", "Tyres, lights, fluids, washer and screen", "Nothing"], a: 1, w: "Check tyres (incl. pressure/tread), lights, oil/coolant, washer fluid and a clean screen." },
+  { t: "General", q: "Worn tyres in the wet mainly increase the risk of:", o: ["Better grip", "Longer braking and aquaplaning", "Lower fuel use"], a: 1, w: "Shallow tread can't clear water, lengthening braking and inviting aquaplaning." },
+  { t: "General", q: "Carrying a load on the roof affects the car by:", o: ["Nothing", "Raising the centre of gravity and changing handling", "Improving braking"], a: 1, w: "A roof load raises the centre of gravity, affecting cornering and braking; secure it and slow down." },
+  { t: "General", q: "If your vehicle starts to skid in a bend, you should:", o: ["Brake hard", "Ease off, look and steer where you want to go", "Accelerate"], a: 1, w: "Smoothly ease off and steer toward your intended path; harsh inputs worsen the slide." },
+  { t: "General", q: "Eco-driving also means using engine braking by:", o: ["Coasting in neutral", "Lifting off early in gear to slow", "Revving high"], a: 1, w: "Lifting off in gear lets the engine slow you, saving fuel and brake wear; avoid neutral coasting." },
+  { t: "General", q: "Your responsibility for passengers' seatbelts covers:", o: ["No one else", "Children — ensure they are properly restrained", "Only the front passenger"], a: 1, w: "The driver is responsible for ensuring minors are correctly restrained." },
+  { t: "General", q: "When fuel is low and a warning shows, you should:", o: ["Drive faster", "Refuel at the next opportunity", "Ignore it"], a: 1, w: "Refuel soon; running dry can strand you dangerously and may damage the fuel system." },
+  { t: "General", q: "A flashing green or 'walking' figure for pedestrians starting to flash means:", o: ["Speed up to cross", "Finish crossing; don't start", "Stop in the road"], a: 1, w: "A flashing pedestrian phase means finish if already crossing but do not start a new crossing." },
+
+  // Additional coverage
+  { t: "Priority", q: "Two cars meet at an equal crossroads, each with a car to their right. To break the deadlock you should:", o: ["Force through first", "Make eye contact and proceed carefully one at a time", "Reverse away"], a: 1, w: "In a four-way right-hand deadlock, communicate and let one move at a time — courtesy and care resolve it safely." },
+  { t: "Traffic lights", q: "A bus lane signal shows a white horizontal bar on black. For general traffic it means:", o: ["Go", "It is a signal for buses/trams, not for you", "Stop"], a: 1, w: "Special bar signals control trams and buses; follow your own normal lights, not these." },
+  { t: "Overtaking", q: "Before pulling out to overtake, your sequence should be:", o: ["Pull out, then check", "Mirrors, blind spot, signal, then move when clear", "Signal only"], a: 1, w: "Check mirrors and the blind spot, signal your intention, and move out only when the road ahead and behind is clear." },
+  { t: "Winter driving", q: "Engine braking on a long icy descent is useful because it:", o: ["Saves fuel only", "Slows you with less risk of wheel lock than heavy braking", "Warms the brakes"], a: 1, w: "Letting the engine slow you in a lower gear reduces reliance on the brakes, lowering the chance of locking up on ice." },
+  { t: "Driver conduct", q: "Your view is blocked by snow on the windscreen and lights. Before driving you must:", o: ["Clear a small peephole", "Clear all glass, lights and the roof", "Just start driving"], a: 1, w: "Clear all windows, mirrors, lights and loose roof snow; a peephole and snow flying off endanger you and others." },
+  { t: "Pedestrians", q: "At a zebra crossing with a central island, a pedestrian has crossed to the island and waits. You on the far side:", o: ["Must always stop", "Treat each half separately; give way when they move toward your side", "Ignore them"], a: 1, w: "With a refuge island the two halves act separately; give way once the pedestrian steps off toward your carriageway." },
+  { t: "Motorway", q: "If you miss your motorway exit you should:", o: ["Reverse to it", "Stop and back up on the shoulder", "Continue to the next exit"], a: 2, w: "Never reverse or stop on a motorway; carry on to the next exit and rejoin — a missed exit is only a short detour." },
+  { t: "Hazards", q: "Driving into low winter sun, the main danger is:", o: ["Engine overheating", "Glare hiding pedestrians and signals — slow and use the visor", "Fuel freezing"], a: 1, w: "Sun glare, worse on a dirty screen, can hide hazards; slow down, clean the glass and use the sun visor." },
+  { t: "Road markings", q: "A continuous edge line at the side of the carriageway marks:", o: ["A cycle lane", "The edge of the drivable carriageway", "A parking bay"], a: 1, w: "The edge line shows where the carriageway ends; it helps you judge position in the dark and poor weather." },
+  { t: "Driver conduct", q: "You realise you are too tired to continue safely on a motorway. You should:", o: ["Stop on the hard shoulder to nap", "Leave at a rest area or services and rest", "Drive with the window open"], a: 1, w: "The hard shoulder is for emergencies only; take the next rest area or services to stop and sleep safely." },
+  { t: "Cyclists", q: "In winter, cyclists and pedestrians on shared paths near the road mean you should:", o: ["Expect none in winter", "Still watch carefully — many cycle and walk year-round", "Use the path yourself"], a: 1, w: "Finns cycle and walk through winter; expect vulnerable road users on paths and at crossings in all seasons." },
+  { t: "General", q: "An ABS system helps mainly by:", o: ["Stopping you faster on all surfaces", "Preventing wheel lock so you can steer while braking hard", "Replacing winter tyres"], a: 1, w: "ABS stops the wheels locking so you keep steering control in emergency braking; it does not shorten distance on ice." },
+];
+
+/* ---------- 2) TRAFFIC SITUATIONS (Yes/No, sketched scenes) ---------- */
+/* Each: scene spec + proposal + answer(true=Yes) + why + highlights[{x,d,r}] (laneX,-depth) */
+const SIT = [
+  { id: "s1", env: "city",
+    scene: { road: "cross", center: "dashed", arrows: [{ lane: 0.35, dir: "straight" }], objects: [{ type: "truckOncoming", lane: -0.5, depth: 0.3 }] },
+    prop: "I may drive straight on in this lane.", a: true,
+    w: "The painted arrow in your lane allows straight ahead. The red truck is oncoming in the opposite lane. Stay in your marked lane and follow it through the junction.",
+    hi: [{ x: 0.35, d: 0.34, r: 20 }, { x: -0.5, d: 0.3, r: 20 }] },
+  { id: "s2", env: "city",
+    scene: { road: "straight", center: "dashed", crossing: 0.4, objects: [{ type: "pedestrian", lane: 0.65, depth: 0.42 }] },
+    prop: "I can continue without slowing for the crossing.", a: false,
+    w: "A pedestrian is approaching the zebra crossing. You must slow and be ready to stop and give way.",
+    hi: [{ x: 0.65, d: 0.42, r: 18 }, { x: 0, d: 0.4, r: 26 }] },
+  { id: "s3", env: "rural",
+    scene: { road: "straight", center: "solid", objects: [{ type: "carAhead", lane: 0.32, depth: 0.45, slow: true }] },
+    prop: "I may overtake the slow vehicle here.", a: false,
+    w: "The centre line is solid — overtaking is forbidden. Wait for a dashed section with a clear view.",
+    hi: [{ x: 0, d: 0.6, r: 14 }] },
+  { id: "s4", env: "city",
+    scene: { road: "cross", center: "dashed", objects: [{ type: "carRight", lane: 0.9, depth: 0.5 }] },
+    prop: "I have priority over the car coming from the right.", a: false,
+    w: "With no signs, the right-hand rule applies: give way to the vehicle approaching from your right.",
+    hi: [{ x: 1.12, d: 0.45, r: 24 }] },
+  { id: "s5", env: "city",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "cyclist", lane: 0.8, depth: 0.35 }], turn: "right" },
+    prop: "I may turn right across the cycle lane without giving way.", a: false,
+    w: "A cyclist going straight on your right has priority. Check your mirror and blind spot and give way before turning.",
+    hi: [{ x: 0.8, d: 0.35, r: 16 }] },
+  { id: "s6", env: "rural", weather: "snow",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.32, depth: 0.4 }] },
+    prop: "My following distance should be larger than on a dry road.", a: true,
+    w: "On snow and ice, stopping distance multiplies. Increase the gap well beyond the dry-road three seconds.",
+    hi: [{ x: 0, d: 0.4, r: 16 }] },
+  { id: "s7", env: "city",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "tram", lane: -0.4, depth: 0.4 }, { type: "pedestrian", lane: -0.1, depth: 0.45 }] },
+    prop: "A tram has stopped with no island; I may pass while passengers cross.", a: false,
+    w: "Passengers cross your lane to reach the pavement. Stop completely until everyone is safe.",
+    hi: [{ x: -0.1, d: 0.45, r: 16 }, { x: -0.4, d: 0.4, r: 20 }] },
+  { id: "s8", env: "city",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "emergency", lane: -0.12, depth: 0.5 }] },
+    prop: "I should move to the right and let the emergency vehicle pass.", a: true,
+    w: "Blue lights and siren: move right, slow or stop, and let it through — even past a green light.",
+    hi: [{ x: -0.12, d: 0.5, r: 18 }] },
+  { id: "s9", env: "rural",
+    scene: { road: "straight", center: "dashed", sign: { code: "warnMoose", lane: 1.12, depth: 0.55 } },
+    prop: "I should scan the roadsides and be ready to slow.", a: true,
+    w: "The moose warning means animals may cross, especially at dawn and dusk. Reduce speed and watch the verges.",
+    hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s10", env: "city",
+    scene: { road: "straight", center: "dashed", sign: { code: "speed30", lane: 1.12, depth: 0.5 } },
+    prop: "I may keep driving at 50 km/h past this sign.", a: false,
+    w: "The sign sets a 30 km/h limit from here. Slow to 30 before reaching it.",
+    hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s11", env: "residential",
+    scene: { road: "straight", center: "none", parked: true, objects: [{ type: "pedestrian", lane: -0.55, depth: 0.3 }] },
+    prop: "Between parked cars I should expect pedestrians to step out.", a: true,
+    w: "Children and pedestrians can emerge between parked cars. Cover the brake, reduce speed, and watch the gaps.",
+    hi: [{ x: -0.55, d: 0.3, r: 16 }] },
+  { id: "s12", env: "city",
+    scene: { road: "roundabout", objects: [{ type: "carLeft", lane: -0.5, depth: 0.4 }] },
+    prop: "I can enter the roundabout ahead of the circulating car.", a: false,
+    w: "A vehicle is already circulating from your left. Give way and enter only when there is a safe gap.",
+    hi: [{ x: -0.5, d: 0.4, r: 18 }] },
+  { id: "s13", env: "rural", weather: "fog",
+    scene: { road: "straight", center: "dashed" },
+    prop: "In this fog I should use dipped headlights, not full beam.", a: true,
+    w: "Full beam reflects off fog and dazzles you. Use dipped beam with fog lights, and slow down.",
+    hi: [{ x: 0, d: 0.2, r: 30 }] },
+  { id: "s14", env: "city",
+    scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "yellowFlash", lane: 1.06, depth: 0.5 } },
+    prop: "The flashing yellow means I must stop and wait.", a: false,
+    w: "Flashing yellow is not a stop. Slow down, take care, and apply normal priority (right-hand) rules at the junction.",
+    hi: [{ x: 1.06, d: 0.5, r: 16 }] },
+  { id: "s15", env: "city",
+    scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "red", lane: 1.06, depth: 0.5 } },
+    prop: "I may cross the junction on this red light.", a: false,
+    w: "Red means stop behind the stop line and wait. No crossing the junction until the light turns green.",
+    hi: [{ x: 1.06, d: 0.5, r: 16 }, { x: 0.5, d: 0.44, r: 14 }] },
+  { id: "s16", env: "rural",
+    scene: { road: "curveLeft", center: "solid" },
+    prop: "I should reduce speed before the bend, not in it.", a: true,
+    w: "Brake on the straight before the curve; braking mid-bend on a slippery road can break grip and cause a skid.",
+    hi: [{ x: -0.3, d: 0.5, r: 18 }] },
+  { id: "s17", env: "city",
+    scene: { road: "tjunction", crossDepth: 0.52, center: "dashed", stopLine: 0.46, sign: { code: "yield", lane: 1.12, depth: 0.5 }, objects: [{ type: "crossR", lane: -0.55, depth: 0.52 }] },
+    prop: "The give-way sign lets me roll on without yielding if I feel it's clear.", a: false,
+    w: "A give-way sign means you must yield to traffic on the through road — here a car is crossing. Proceed only when it is genuinely clear.",
+    hi: [{ x: 1.12, d: 0.5, r: 24 }, { x: -0.55, d: 0.52, r: 18 }] },
+  { id: "s18", env: "highway",
+    scene: { road: "straight", center: "dashed", lanes: 2, objects: [{ type: "carMergeRight", lane: 0.8, depth: 0.45 }] },
+    prop: "Traffic merging from the on-ramp must give way to me.", a: true,
+    w: "You are already on the motorway, so joining traffic yields. Moving left when safe is the courteous choice.",
+    hi: [{ x: 0.8, d: 0.45, r: 16 }] },
+  { id: "s19", env: "city",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "ballChild", lane: -0.5, depth: 0.35 }] },
+    prop: "A ball rolls into the road; I should expect a child to follow.", a: true,
+    w: "Where a ball appears, a child often follows. Brake and be ready to stop.",
+    hi: [{ x: -0.5, d: 0.35, r: 16 }] },
+  { id: "s20", env: "rural",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.2, depth: 0.5, signalLeft: true }] },
+    prop: "The car ahead signals left; I may pass it on the right.", a: true,
+    w: "When the vehicle ahead clearly signals and moves to turn left, you may carefully pass on the right if there is room.",
+    hi: [{ x: 0.2, d: 0.5, r: 16 }, { x: 0.62, d: 0.5, r: 14 }] },
+  { id: "s21", env: "city",
+    scene: { road: "straight", center: "dashed", sign: { code: "noStopping", lane: 1.12, depth: 0.5 } },
+    prop: "I can stop here briefly to drop off a passenger.", a: false,
+    w: "A no-stopping sign forbids any pause, even to drop off. Find a permitted spot.",
+    hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s22", env: "rural", weather: "night",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "carOncoming", lane: -0.45, depth: 0.45 }] },
+    prop: "I should dip my full beam for the oncoming car.", a: true,
+    w: "Dip your headlights when meeting oncoming traffic so you don't dazzle the other driver.",
+    hi: [{ x: -0.45, d: 0.45, r: 16 }] },
+  { id: "s23", env: "city",
+    scene: { road: "straight", center: "dashed", crossing: 0.45, objects: [{ type: "blind", lane: 0.6, depth: 0.45 }] },
+    prop: "A person with a white cane waits; I must give way.", a: true,
+    w: "Always give way to a pedestrian with a white cane or guide dog — they may not be able to see you.",
+    hi: [{ x: 0.6, d: 0.45, r: 16 }] },
+  { id: "s24", env: "residential",
+    scene: { road: "straight", center: "none", sign: { code: "livingStreet", lane: 1.12, depth: 0.5 } },
+    prop: "On this living street I may drive at the normal 50 km/h.", a: false,
+    w: "On a living street you drive at walking pace and give way to pedestrians, including children playing.",
+    hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s25", env: "rural", weather: "rain",
+    scene: { road: "straight", center: "dashed" },
+    prop: "In heavy standing water I should slow to avoid aquaplaning.", a: true,
+    w: "Standing water can lift the tyres (aquaplaning). Reduce speed; if it happens, ease off and steer straight.",
+    hi: [{ x: 0, d: 0.3, r: 24 }] },
+  { id: "s26", env: "city",
+    scene: { road: "cross", center: "dashed", sign: { code: "priorityRoad", lane: 1.12, depth: 0.5 }, objects: [{ type: "carRight", lane: 0.9, depth: 0.5 }] },
+    prop: "On this priority road I keep priority over the side road on the right.", a: true,
+    w: "The priority-road sign overrides the right-hand rule; side-road traffic must give way to you.",
+    hi: [{ x: 1.12, d: 0.5, r: 24 }, { x: 0.9, d: 0.5, r: 14 }] },
+  { id: "s27", env: "city",
+    scene: { road: "straight", center: "dashed", objects: [{ type: "busStop", lane: 0.7, depth: 0.4, indicating: true }] },
+    prop: "A bus signals to pull out from its stop; in town I should let it go.", a: true,
+    w: "In built-up areas you must give way to a bus signalling to leave its stop, if you can do so safely.",
+    hi: [{ x: 0.7, d: 0.4, r: 18 }] },
+  { id: "s28", env: "rural",
+    scene: { road: "straight", center: "dashed", sign: { code: "warnLevelOpen", lane: 1.12, depth: 0.55 } },
+    prop: "Approaching the level crossing I should slow and check for trains.", a: true,
+    w: "Reduce speed, look both ways and cross only when clear; never queue on the tracks.",
+    hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s29", env: "city",
+    scene: { road: "straight", center: "solid", objects: [{ type: "cyclist", lane: 0.6, depth: 0.4 }] },
+    prop: "I may overtake the cyclist closely since they are slow.", a: false,
+    w: "Pass cyclists wide and at reduced speed; a close pass is dangerous and the solid line limits your room.",
+    hi: [{ x: 0.6, d: 0.4, r: 16 }] },
+  { id: "s30", env: "city",
+    scene: { road: "cross", center: "dashed", arrows: [{ lane: -0.4, dir: "left" }, { lane: 0.4, dir: "straight" }] },
+    prop: "From the right-hand lane (straight arrow) I may turn left.", a: false,
+    w: "Painted arrows are binding. The left arrow lane turns left; the straight-arrow lane must go straight. Pick the correct lane early.",
+    hi: [{ x: -0.4, d: 0.34, r: 16 }, { x: 0.4, d: 0.34, r: 16 }] },
+  // ---- PRIORITY / RIGHT OF WAY ----
+  { id: "s31", env: "city", scene: { road: "cross", center: "dashed", objects: [{ type: "carLeft", lane: -0.85, depth: 0.5 }] }, prop: "A car approaches from my left at this unmarked junction; I must give way to it.", a: false, w: "The right-hand rule applies: you yield to traffic from the RIGHT, not the left. You keep priority here — but you would still yield to a tram from either side.", hi: [{ x: -0.8, d: 0.5, r: 18 }] },
+  { id: "s32", env: "city", scene: { road: "cross", center: "dashed", sign: { code: "stop", lane: 1.12, depth: 0.5 }, objects: [{ type: "crossR", lane: -0.55, depth: 0.52 }] }, prop: "At this STOP sign I may roll through slowly because the road looks clear.", a: false, w: "STOP means a full stop at the line every time, then give way. Rolling through is an offence even if it seems clear.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s33", env: "city", scene: { road: "cross", center: "dashed", sign: { code: "priorityRoad", lane: 1.12, depth: 0.5 }, objects: [{ type: "carRight", lane: 0.9, depth: 0.5 }] }, prop: "I am on a priority road; the car waiting on the side road to my right must give way to me.", a: true, w: "The priority-road sign overrides the right-hand rule. Side-road traffic yields to you.", hi: [{ x: 1.12, d: 0.5, r: 24 }, { x: 0.9, d: 0.5, r: 16 }] },
+  { id: "s34", env: "city", scene: { road: "cross", center: "dashed", arrows: [{ lane: 0.35, dir: "left" }], objects: [{ type: "carOncoming", lane: -0.45, depth: 0.45 }] }, prop: "Turning left here, I must give way to the oncoming car going straight.", a: true, w: "A left turn yields to oncoming traffic proceeding straight, and to pedestrians/cyclists crossing the road you enter.", hi: [{ x: -0.45, d: 0.45, r: 18 }] },
+  { id: "s35", env: "residential", scene: { road: "straight", center: "none", sign: { code: "livingStreet", lane: 1.12, depth: 0.5 }, objects: [{ type: "pedestrian", lane: -0.4, depth: 0.4 }] }, prop: "Leaving this yard street onto the main road, I must give way to all traffic and pedestrians.", a: true, w: "Exiting a yard/living street, you give way to everyone — through traffic and pedestrians alike.", hi: [{ x: 1.12, d: 0.5, r: 24 }, { x: -0.4, d: 0.4, r: 16 }] },
+  { id: "s36", env: "city", scene: { road: "tjunction", crossDepth: 0.52, center: "dashed", objects: [{ type: "crossR", lane: -0.55, depth: 0.52 }] }, prop: "My road ends at this T-junction with no signs, so the through road automatically has priority.", a: false, w: "Without signs the right-hand rule still governs. Road shape or which road 'ends' does not create priority by itself.", hi: [{ x: -0.55, d: 0.52, r: 18 }] },
+  { id: "s37", env: "rural", scene: { road: "straight", center: "solid", parked: true, objects: [{ type: "carOncoming", lane: -0.45, depth: 0.4 }] }, prop: "An obstacle is on my side of this narrow road; I must give way to the oncoming car.", a: true, w: "Where the obstruction is on your side, you wait and let oncoming traffic pass first.", hi: [{ x: -0.45, d: 0.4, r: 18 }] },
+  { id: "s38", env: "city", scene: { road: "straight", center: "dashed", objects: [{ type: "tram", lane: -0.4, depth: 0.4 }] }, prop: "A tram approaches the junction from my left; I may go first because it is on my left.", a: false, w: "Trams get free passage at junctions from EITHER direction, including the left. Give way.", hi: [{ x: -0.4, d: 0.4, r: 20 }] },
+  { id: "s39", env: "city", scene: { road: "cross", center: "dashed", objects: [{ type: "carRight", lane: 0.9, depth: 0.5 }] }, prop: "At this unmarked crossroads I must give way to the car coming from my right.", a: true, w: "Right-hand rule: yield to traffic approaching from the right when there are no signs or signals.", hi: [{ x: 0.9, d: 0.5, r: 18 }] },
+  { id: "s40", env: "city", scene: { road: "cross", center: "dashed", sign: { code: "priorityEnds", lane: 1.12, depth: 0.5 }, objects: [{ type: "carRight", lane: 0.9, depth: 0.5 }] }, prop: "Past this 'end of priority road' sign I keep priority over the car on my right.", a: false, w: "Priority has ended, so the normal right-hand rule resumes — give way to the car from the right.", hi: [{ x: 1.12, d: 0.5, r: 24 }, { x: 0.9, d: 0.5, r: 16 }] },
+
+  // ---- ROUNDABOUTS ----
+  { id: "s41", env: "city", scene: { road: "roundabout", sign: { code: "warnRoundabout", lane: 1.12, depth: 0.55 }, objects: [{ type: "carLeft", lane: -0.5, depth: 0.4 }] }, prop: "A car is already circulating from my left; I must give way before entering.", a: true, w: "Traffic already in the roundabout has priority. Enter only when there is a safe gap.", hi: [{ x: -0.5, d: 0.4, r: 18 }] },
+  { id: "s42", env: "city", scene: { road: "roundabout" }, prop: "I should signal left as I enter the roundabout.", a: false, w: "No signal on entry. Signal RIGHT only just before the exit you take.", hi: [{ x: 0, d: 0.4, r: 22 }] },
+  { id: "s43", env: "city", scene: { road: "roundabout", crossing: 0.3, objects: [{ type: "pedestrian", lane: 0.6, depth: 0.32 }] }, prop: "Leaving the roundabout, I must give way to the pedestrian on the crossing at my exit.", a: true, w: "The exiting driver gives way to pedestrians and cyclists crossing the exit road.", hi: [{ x: 0.6, d: 0.32, r: 18 }] },
+  { id: "s44", env: "city", scene: { road: "roundabout", objects: [{ type: "cyclist", lane: -0.45, depth: 0.4 }] }, prop: "A cyclist is circulating in the roundabout; they have the same priority as a car.", a: true, w: "Cyclists in the roundabout have priority like any other vehicle. Give way on entry.", hi: [{ x: -0.45, d: 0.4, r: 16 }] },
+
+  // ---- TRAFFIC LIGHTS ----
+  { id: "s45", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "redYellow", lane: 1.06, depth: 0.5 } }, prop: "Red and yellow show together, so I may start moving now.", a: false, w: "Red+yellow means 'get ready'. Stay stopped until the light is fully green.", hi: [{ x: 1.06, d: 0.5, r: 16 }] },
+  { id: "s46", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "green", lane: 1.06, depth: 0.5 }, arrows: [{ lane: 0.35, dir: "left" }], objects: [{ type: "carOncoming", lane: -0.45, depth: 0.42 }] }, prop: "I have a green light and want to turn left; I must still give way to oncoming traffic.", a: true, w: "A round green gives no priority for a left turn — yield to oncoming vehicles and to crossing pedestrians.", hi: [{ x: -0.45, d: 0.42, r: 18 }] },
+  { id: "s47", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "green", lane: 1.06, depth: 0.5 }, crossing: 0.34, objects: [{ type: "pedestrian", lane: 0.62, depth: 0.36 }] }, prop: "Turning right on green, I must give way to pedestrians crossing the road I turn into.", a: true, w: "Green does not exempt you from yielding to pedestrians already crossing your exit road.", hi: [{ x: 0.62, d: 0.36, r: 18 }] },
+  { id: "s48", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "green", lane: 1.06, depth: 0.5 } }, prop: "The light is green; I may proceed when the way is clear.", a: true, w: "Green means go if the junction is clear. Watch for late crossing pedestrians and emergency vehicles.", hi: [{ x: 1.06, d: 0.5, r: 16 }] },
+
+  // ---- PEDESTRIANS & CYCLISTS ----
+  { id: "s49", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.42, objects: [{ type: "pedestrian", lane: -0.55, depth: 0.45 }] }, prop: "A pedestrian is stepping onto the zebra from the left; I must give way.", a: true, w: "Give free passage to a pedestrian on, or about to step onto, the crossing.", hi: [{ x: -0.55, d: 0.45, r: 18 }, { x: 0, d: 0.42, r: 24 }] },
+  { id: "s50", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.45, objects: [{ type: "carAhead", lane: -0.4, depth: 0.5, slow: true }] }, prop: "A car in the next lane has stopped at the crossing; I may pass it without stopping.", a: false, w: "Never pass a vehicle stopped for a crossing — a pedestrian you cannot see may be in front of it.", hi: [{ x: -0.4, d: 0.5, r: 18 }, { x: 0, d: 0.45, r: 24 }] },
+  { id: "s51", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.45, objects: [{ type: "blind", lane: 0.6, depth: 0.45 }] }, prop: "A person with a white cane waits at the crossing; I must give way and take special care.", a: true, w: "A white cane signals a visually impaired pedestrian. Always stop and give way.", hi: [{ x: 0.6, d: 0.45, r: 16 }] },
+  { id: "s52", env: "city", scene: { road: "straight", center: "dashed", objects: [{ type: "child", lane: -0.5, depth: 0.4 }] }, prop: "A child is alone near the roadside; I should slow and be ready to stop.", a: true, w: "Children are unpredictable. The law requires special caution near children, the elderly and the disabled.", hi: [{ x: -0.5, d: 0.4, r: 16 }] },
+  { id: "s53", env: "city", scene: { road: "straight", center: "dashed", turn: "right", objects: [{ type: "cyclist", lane: 0.8, depth: 0.35 }] }, prop: "Turning right, I may cross the cycle lane without giving way to the cyclist going straight.", a: false, w: "A cyclist going straight on your right has priority. Check the mirror and blind spot and give way.", hi: [{ x: 0.8, d: 0.35, r: 16 }] },
+  { id: "s54", env: "city", scene: { road: "straight", center: "solid", objects: [{ type: "cyclist", lane: 0.55, depth: 0.4 }] }, prop: "Overtaking this cyclist, I must leave plenty of side clearance.", a: true, w: "Pass cyclists wide and slow; they can wobble or be pushed by gusts. A close pass is dangerous.", hi: [{ x: 0.55, d: 0.4, r: 16 }] },
+  { id: "s55", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.44, objects: [{ type: "pedestrian", lane: 0.05, depth: 0.46 }] }, prop: "A pedestrian is on the refuge island and stepping toward my side; I must give way.", a: true, w: "Once the pedestrian moves toward your half of the road, give way and let them complete the crossing.", hi: [{ x: 0.05, d: 0.46, r: 16 }] },
+  { id: "s56", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.42, objects: [{ type: "cyclist", lane: -0.5, depth: 0.45 }] }, prop: "A person is pushing (walking) a bicycle across the zebra; I treat them as a pedestrian and give way.", a: true, w: "A walked bicycle counts as a pedestrian on the crossing — give way.", hi: [{ x: -0.5, d: 0.45, r: 16 }] },
+
+  // ---- OVERTAKING & LANES ----
+  { id: "s57", env: "rural", scene: { road: "straight", center: "solid", objects: [{ type: "carAhead", lane: 0.32, depth: 0.5, slow: true }] }, prop: "A solid centre line is on my side; I may cross it to overtake this slow car.", a: false, w: "A solid centre line must not be crossed. Wait for a dashed section with a clear view.", hi: [{ x: 0, d: 0.6, r: 14 }] },
+  { id: "s58", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.32, depth: 0.5, slow: true }] }, prop: "The centre line is dashed and the road ahead is clear; I may overtake.", a: true, w: "A dashed line allows overtaking when it is safe — good view, enough room, no oncoming hazard.", hi: [{ x: 0.32, d: 0.5, r: 16 }] },
+  { id: "s59", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.2, depth: 0.5, signalLeft: true }] }, prop: "The car ahead signals left and moves over; I may pass it on the right.", a: true, w: "When the vehicle ahead clearly signals and moves to turn left, you may pass carefully on the right.", hi: [{ x: 0.2, d: 0.5, r: 16 }, { x: 0.62, d: 0.5, r: 14 }] },
+  { id: "s60", env: "rural", scene: { road: "curveLeft", center: "solid", objects: [{ type: "carAhead", lane: 0.3, depth: 0.5 }] }, prop: "I may overtake on this blind left bend if I am quick.", a: false, w: "Overtaking is forbidden where sight distance is too short — bends, hill crests and junctions.", hi: [{ x: 0.3, d: 0.5, r: 16 }] },
+  { id: "s61", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.32, depth: 0.45, signalLeft: true }] }, prop: "The car ahead has signalled to overtake the vehicle in front of it; I may begin overtaking it.", a: false, w: "Do not overtake a vehicle that is itself starting to overtake. Wait until the road is settled.", hi: [{ x: 0.32, d: 0.45, r: 16 }] },
+  { id: "s62", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2, objects: [{ type: "carMergeRight", lane: 0.8, depth: 0.45 }] }, prop: "On this multi-lane road I should keep to the rightmost free lane.", a: true, w: "Keep right; use the left lanes only for overtaking, then return. Don't lane-hog.", hi: [{ x: 0.8, d: 0.45, r: 16 }] },
+
+  // ---- SPEED & SIGNS ----
+  { id: "s63", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "speed30", lane: 1.12, depth: 0.5 } }, prop: "I may keep driving 50 km/h past this sign.", a: false, w: "The sign sets 30 km/h from here. Slow to 30 before reaching it.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s64", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "speed80", lane: 1.12, depth: 0.5 } }, prop: "This yellow-background sign is a normal Finnish speed-limit sign for 80 km/h.", a: true, w: "Finnish prohibitory and speed-limit signs use a yellow background — a distinctive national feature.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s65", env: "residential", scene: { road: "straight", center: "none", sign: { code: "livingStreet", lane: 1.12, depth: 0.5 } }, prop: "On this living street I may drive the normal 50 km/h.", a: false, w: "On a living street you drive at walking pace (max about 20 km/h) and give way to pedestrians.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s66", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "noEntry", lane: 1.12, depth: 0.5 } }, prop: "This sign means I must not drive into this street.", a: true, w: "A red circle with a white bar means no entry for all vehicles in this direction.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s67", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "noOvertake", lane: 1.12, depth: 0.5 }, objects: [{ type: "carAhead", lane: 0.32, depth: 0.5 }] }, prop: "Past this sign I may overtake the car ahead.", a: false, w: "The two-cars sign forbids overtaking other motor vehicles from here until the end sign.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s68", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnGeneral", lane: 1.12, depth: 0.55 } }, prop: "This triangular sign warns of a hazard ahead, so I should prepare and slow if needed.", a: true, w: "Triangles warn. The 'other danger' sign means a hazard ahead not covered by a specific sign.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s69", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "warnLights", lane: 1.12, depth: 0.55 } }, prop: "This sign tells me to be ready to stop for traffic lights ahead.", a: true, w: "The traffic-signals warning sign means lights are ahead; be ready to stop.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+
+  // ---- WINTER / WEATHER / HAZARD ----
+  { id: "s70", env: "rural", weather: "snow", scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.32, depth: 0.4 }] }, prop: "On this snowy road I must adjust my speed below the posted limit if conditions require.", a: true, w: "The limit is a maximum, not a safe speed. Adapt to grip, visibility and traffic.", hi: [{ x: 0.32, d: 0.4, r: 16 }] },
+  { id: "s71", env: "rural", weather: "snow", scene: { road: "straight", center: "dashed", sign: { code: "warnSlippery", lane: 1.12, depth: 0.55 } }, prop: "This sign warns the road may be slippery; I should reduce speed and avoid sudden inputs.", a: true, w: "Slippery-road warning: cut speed, brake and steer gently to keep grip.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s72", env: "rural", weather: "fog", scene: { road: "straight", center: "dashed" }, prop: "In this dense fog I should switch to full-beam headlights to see better.", a: false, w: "Full beam reflects off fog and dazzles you. Use dipped beam (and fog lights if fitted), and slow down.", hi: [{ x: 0, d: 0.25, r: 30 }] },
+  { id: "s73", env: "rural", weather: "rain", scene: { road: "straight", center: "dashed" }, prop: "Through deep standing water I should slow to reduce the risk of aquaplaning.", a: true, w: "Standing water can lift the tyres. Slow down; if it happens, ease off and steer straight — don't brake hard.", hi: [{ x: 0, d: 0.3, r: 24 }] },
+  { id: "s74", env: "rural", weather: "night", scene: { road: "straight", center: "dashed", objects: [{ type: "carOncoming", lane: -0.45, depth: 0.45 }] }, prop: "I should dip my full beam for this oncoming car.", a: true, w: "Dip your headlights when meeting oncoming traffic so you don't dazzle the other driver.", hi: [{ x: -0.45, d: 0.45, r: 16 }] },
+  { id: "s75", env: "rural", scene: { road: "curveLeft", center: "solid" }, prop: "I should reduce speed before this bend rather than braking in it.", a: true, w: "Brake on the straight before the curve. Braking mid-bend on a slippery road can break grip.", hi: [{ x: -0.3, d: 0.5, r: 18 }] },
+  { id: "s76", env: "rural", weather: "snow", scene: { road: "straight", center: "dashed", objects: [{ type: "carAhead", lane: 0.32, depth: 0.4 }] }, prop: "In winter I should keep a longer following distance than the dry-road minimum.", a: true, w: "On snow and ice, stopping distance multiplies. Leave well more than the dry-road three-second gap.", hi: [{ x: 0.32, d: 0.4, r: 16 }] },
+
+  // ---- WILDLIFE & RURAL ----
+  { id: "s77", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnMoose", lane: 1.12, depth: 0.55 } }, prop: "At this moose sign I should slow and scan the verges, especially at dawn and dusk.", a: true, w: "Most elk collisions happen at dawn/dusk in autumn. A 500 kg animal is often fatal — slow and watch.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s78", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnReindeer", lane: 1.12, depth: 0.55 } }, prop: "Where I see one reindeer, more may follow, so I should slow down.", a: true, w: "Reindeer move in herds. Slow right down — where there is one, others usually follow.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s79", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "child", lane: -0.5, depth: 0.42 }] }, prop: "An elk suddenly crosses; I should brake hard in a straight line and aim to pass behind it.", a: true, w: "Brake hard while keeping straight; swerving risks rollover or oncoming traffic. Animals move forward, so aim behind.", hi: [{ x: -0.5, d: 0.42, r: 16 }] },
+  { id: "s80", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnGeneral", lane: 1.12, depth: 0.55 } }, prop: "After hitting a large animal like an elk, I must report it to the emergency number 112.", a: true, w: "Collisions with elk, deer, reindeer, wild boar or large predators must be reported to 112.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+
+  // ---- MOTORWAY ----
+  { id: "s81", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2, objects: [{ type: "carMergeRight", lane: 0.8, depth: 0.45 }] }, prop: "Joining the motorway from the slip road, I must give way to traffic already on it.", a: true, w: "The joining driver yields and merges into a gap. Through traffic need not move over.", hi: [{ x: 0.8, d: 0.45, r: 16 }] },
+  { id: "s82", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2, objects: [{ type: "carMergeRight", lane: 0.8, depth: 0.45 }] }, prop: "As through traffic, I am legally required to change lanes to let the joining car in.", a: false, w: "You have no duty to give way; keeping a safe gap is the courteous, safer method, but moving over isn't required.", hi: [{ x: 0.8, d: 0.45, r: 16 }] },
+  { id: "s83", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2 }, prop: "I may drive along the hard shoulder to get past a queue.", a: false, w: "The hard shoulder is for emergencies only. Driving along it to bypass traffic is forbidden.", hi: [{ x: 0.92, d: 0.2, r: 20 }] },
+  { id: "s84", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2 }, prop: "I may stop on the carriageway here to check my route.", a: false, w: "Stopping, standing and reversing on the motorway carriageway are forbidden except in a genuine emergency — use the shoulder.", hi: [{ x: 0, d: 0.3, r: 24 }] },
+  { id: "s85", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2, objects: [{ type: "carAhead", lane: 0.32, depth: 0.5 }] }, prop: "At 120 km/h I should keep a clearly longer gap than at town speeds.", a: true, w: "At 120 km/h you cover about 33 m every second; the gap must grow with speed.", hi: [{ x: 0.32, d: 0.5, r: 16 }] },
+  { id: "s86", env: "highway", scene: { road: "straight", center: "dashed", lanes: 2, sign: { code: "infoMotorway", lane: 1.12, depth: 0.5 } }, prop: "Entering the motorway, I may immediately drive 120 km/h with no posted figure.", a: false, w: "80 km/h applies until a 100 or 120 sign appears. The maximum motorway limit is 120 (often 100 in winter).", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+
+  // ---- PARKING / STOPPING ----
+  { id: "s87", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "noParking", lane: 1.12, depth: 0.5 } }, prop: "Under this no-parking sign I may still stop briefly to drop off a passenger.", a: true, w: "No-parking forbids leaving the car standing; a brief stop to load or drop off is allowed.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s88", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "noStopping", lane: 1.12, depth: 0.5 } }, prop: "Under this no-stopping sign I may pause briefly to let someone out.", a: false, w: "No-stopping forbids any pause except a forced stop or emergency. Find a permitted spot.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s89", env: "city", scene: { road: "straight", center: "dashed", crossing: 0.45 }, prop: "I may park right up to within a couple of metres before this pedestrian crossing.", a: false, w: "Parking and stopping are forbidden within 5 m before a crossing — it hides pedestrians from other drivers.", hi: [{ x: 0, d: 0.45, r: 24 }] },
+  { id: "s90", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "infoParking", lane: 1.12, depth: 0.5 } }, prop: "In this parking-disc zone I must clearly display my time of arrival.", a: true, w: "Set your arrival time on the disc (or any clear display) on the dash; obey the maximum time shown.", hi: [{ x: 1.12, d: 0.5, r: 24 }] },
+  { id: "s91", env: "city", scene: { road: "straight", center: "dashed", objects: [{ type: "busStop", lane: 0.55, depth: 0.42, indicating: false }] }, prop: "I may park at this marked bus stop to wait for someone.", a: false, w: "Parking is forbidden at a bus stop; only a brief stop to pick up or drop off is allowed where permitted.", hi: [{ x: 0.55, d: 0.42, r: 18 }] },
+  { id: "s92", env: "city", scene: { road: "cross", center: "dashed" }, prop: "I may park within 5 m of this junction's nearest crossing edge.", a: false, w: "Parking and stopping are forbidden within 5 m of a junction (measured from the nearest edge of the crossing road).", hi: [{ x: 0.4, d: 0.34, r: 20 }] },
+
+  // ---- EMERGENCY / SPECIAL ----
+  { id: "s93", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "red", lane: 1.06, depth: 0.5 }, objects: [{ type: "emergency", lane: -0.15, depth: 0.45 }] }, prop: "An emergency vehicle with lights and siren needs to pass; I may carefully move on, even past this red, if that is the only safe way to clear it.", a: true, w: "You must give free passage to a vehicle sounding a siren and showing blue lights — carefully crossing a red is allowed if it is the safe way to clear the path.", hi: [{ x: -0.15, d: 0.45, r: 18 }, { x: 1.06, d: 0.5, r: 16 }] },
+  { id: "s94", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "red", lane: 1.06, depth: 0.5 }, objects: [{ type: "emergency", lane: -0.15, depth: 0.45 }] }, prop: "A police car behind me shows a blue light but no siren; I must run this red light to clear the way.", a: false, w: "Without a siren you must not break traffic rules. Never drive through a red on a blue light alone.", hi: [{ x: 1.06, d: 0.5, r: 16 }] },
+  { id: "s95", env: "city", scene: { road: "straight", center: "dashed", objects: [{ type: "busStop", lane: 0.5, depth: 0.42, indicating: true }] }, prop: "On this 50 km/h road a bus signals to leave its stop; I must give way.", a: true, w: "Where the limit is 60 km/h or less, you must give way to a bus signalling to pull out from a stop.", hi: [{ x: 0.5, d: 0.42, r: 18 }] },
+  { id: "s96", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "busStop", lane: 0.5, depth: 0.42, indicating: true }] }, prop: "On this 80 km/h road a bus signals to leave its stop; I must give way to it.", a: false, w: "The give-way-to-bus rule applies only where the limit is 60 km/h or less. Here you keep priority (but help if you safely can).", hi: [{ x: 0.5, d: 0.42, r: 18 }] },
+  { id: "s97", env: "city", scene: { road: "straight", center: "dashed", objects: [{ type: "tram", lane: -0.4, depth: 0.4 }, { type: "pedestrian", lane: -0.1, depth: 0.45 }] }, prop: "A tram has stopped where there is no boarding island; I must stop and let passengers cross.", a: false, w: "This proposal is true in effect — passengers cross your lane, so you must stop until they are clear. (Answer: you may NOT pass.)", hi: [{ x: -0.1, d: 0.45, r: 16 }, { x: -0.4, d: 0.4, r: 20 }] },
+  { id: "s98", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnLevelGuarded", lane: 1.12, depth: 0.55 } }, prop: "At this guarded level crossing I must stop and wait when the barriers lower or the light shows red.", a: true, w: "Stop and wait at a guarded crossing when barriers are down or the red light shows. Never zig-zag round barriers.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s99", env: "rural", scene: { road: "straight", center: "dashed", sign: { code: "warnLevelOpen", lane: 1.12, depth: 0.55 } }, prop: "At this unguarded level crossing I should slow and check both ways for a train before crossing.", a: true, w: "An unguarded crossing has no barriers — reduce speed, look both ways and cross only when clear.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+  { id: "s100", env: "city", scene: { road: "straight", center: "dashed", sign: { code: "warnRoadworks", lane: 1.12, depth: 0.55 } }, prop: "A traffic controller at these road works directs me to stop; I must obey them even if the lights are green.", a: true, w: "A traffic controller's signals override traffic lights and signs. Obey the controller.", hi: [{ x: 1.12, d: 0.55, r: 24 }] },
+
+  // ---- RISK PERCEPTION ----
+  { id: "s101", env: "city", scene: { road: "cross", crossDepth: 0.52, center: "dashed", stopLine: 0.44, light: { state: "green", lane: 1.06, depth: 0.5 } }, prop: "This light has been green a long time as I approach; I should be ready for it to change and cover the brake.", a: true, w: "A 'stale' green may change as you arrive. Ease off and be ready to stop safely.", hi: [{ x: 1.06, d: 0.5, r: 16 }] },
+  { id: "s102", env: "residential", scene: { road: "straight", center: "none", parked: true, objects: [{ type: "ballChild", lane: -0.5, depth: 0.35 }] }, prop: "A ball rolls into the road from between parked cars; I should brake and expect a child to follow.", a: true, w: "Where a ball appears, a child often follows. Brake early and be ready to stop.", hi: [{ x: -0.5, d: 0.35, r: 16 }] },
+  { id: "s103", env: "residential", scene: { road: "straight", center: "none", parked: true, objects: [{ type: "pedestrian", lane: -0.55, depth: 0.3 }] }, prop: "Between these parked cars I should expect a pedestrian to step out and reduce my speed.", a: true, w: "Pedestrians can emerge between parked cars. Cover the brake, slow down and watch the gaps.", hi: [{ x: -0.55, d: 0.3, r: 16 }] },
+  { id: "s104", env: "rural", scene: { road: "straight", center: "dashed", objects: [{ type: "carOncoming", lane: -0.25, depth: 0.45 }] }, prop: "An oncoming car drifts over the centre line toward me; I should slow, move right and be ready to use the verge.", a: true, w: "Create space: slow, keep right within your lane, and be ready to stop. Don't gamble on their correction.", hi: [{ x: -0.25, d: 0.45, r: 18 }] },
+  { id: "s105", env: "rural", weather: "rain", scene: { road: "straight", center: "dashed" }, prop: "It is the first rain after a long dry spell; the road is especially slippery now, so I should slow down.", a: true, w: "Early rain lifts oil and dust into a greasy film. Grip is poor — slow down and add distance.", hi: [{ x: 0, d: 0.3, r: 24 }] },
+];
+
+/* ---------- 3) RISK IDENTIFICATION ---------- */
+const RISK = [
+  { t: "Risk", q: "Dusk, wet road, a row of parked cars on your right and a bus stop ahead. The biggest developing risk is:", o: ["Running low on fuel", "A pedestrian stepping out between cars or from the bus", "The car behind"], a: 1, w: "Hidden pedestrians are the key risk here — cover the brake, ease off, and watch the gaps and bus." },
+  { t: "Risk", q: "You approach a green light that has been green a long time ('stale green'). The safest expectation is:", o: ["It will stay green", "It may change; be ready to stop", "Speed up to beat it"], a: 1, w: "A long-green light may change as you arrive. Ease off and be prepared to stop safely." },
+  { t: "Risk", q: "A ball bounces into the road from between parked cars. You should primarily:", o: ["Sound the horn and keep speed", "Brake and expect a child to follow", "Swerve toward oncoming"], a: 1, w: "A child commonly follows a ball. Brake early and be ready to stop." },
+  { t: "Risk", q: "On a motorway you see brake lights flaring far ahead across lanes. The developing risk is:", o: ["Nothing yet", "A forming queue — ease off and increase distance now", "You must change lanes fast"], a: 1, w: "Distant brake lights warn of a building queue; lift off early and open your gap before you reach it." },
+  { t: "Risk", q: "Low winter sun is directly ahead and the windscreen is dirty. The main risk is:", o: ["Overheating", "Severe glare hiding hazards — slow and clean the screen", "Flat battery"], a: 1, w: "Glare off a dirty screen can blind you to pedestrians and signals; slow down, use the visor, and clean the glass." },
+  { t: "Risk", q: "A cyclist ahead keeps glancing over their shoulder toward a side road. This suggests:", o: ["Nothing", "They may turn or move out — give room and be ready", "They will stop"], a: 1, w: "A glance back often precedes a turn or lane change. Hold back, give space, and be ready to slow." },
+  { t: "Risk", q: "Children are walking along a rural road with no pavement, facing you. You should:", o: ["Maintain speed", "Slow and pass with plenty of room", "Sound the horn to move them"], a: 1, w: "Slow right down and leave wide clearance; children can step sideways unpredictably." },
+  { t: "Risk", q: "Heavy rain after a long dry spell makes the first minutes especially slippery because:", o: ["Water cools tyres", "Oil and dust lift to form a greasy film", "Brakes get wet"], a: 1, w: "Early rain lifts oil and dust into a slick film; grip is poor, so slow down and add distance." },
+  { t: "Risk", q: "An oncoming car drifts slightly over the centre line on a bend. Your safest response:", o: ["Hold your line and speed", "Ease off, move left within your lane, be ready to stop", "Flash and accelerate"], a: 1, w: "Create space: slow, keep left within your lane, and prepare to stop. Don't gamble on their correction." },
+  { t: "Risk", q: "A delivery van is double-parked ahead with its hazard lights on. The developing risk is:", o: ["None", "Someone may open a door or step out; oncoming traffic as you pass", "It will move instantly"], a: 1, w: "Expect a door or person, and check oncoming traffic before easing past with room." },
+  { t: "Risk", q: "Fresh snow hides lane markings on an unfamiliar road. You should:", o: ["Keep normal speed", "Slow, increase distance, and position by the road edges/poles", "Follow tracks blindly"], a: 1, w: "With markings hidden, reduce speed, judge position from edges and marker posts, and leave extra space." },
+  { t: "Risk", q: "At a crossing, a pedestrian on the far side has clearly started to step off. You:", o: ["Proceed, they're far", "Stop and let them finish crossing", "Edge forward to hurry them"], a: 1, w: "A pedestrian on the crossing has priority across its whole width; stop and let them complete it." },
+];
+
+/* ---------- 4) SIGNS (50+) ---------- */
+const SIGNS = [
+  // Priority
+  { c: "yield", cat: "Priority", n: "Give way", m: "Yield to traffic on the crossing road; stop only if needed." },
+  { c: "stop", cat: "Priority", n: "Stop", m: "Full stop behind the line every time, then give way." },
+  { c: "priorityRoad", cat: "Priority", n: "Priority road", m: "You keep priority through junctions until the road ends." },
+  { c: "priorityEnds", cat: "Priority", n: "End of priority road", m: "Your priority ends; normal give-way rules now apply." },
+  { c: "priorityOncoming", cat: "Priority", n: "Priority over oncoming", m: "On a narrow stretch you go first; oncoming traffic waits." },
+  { c: "yieldOncoming", cat: "Priority", n: "Give way to oncoming", m: "On a narrow stretch you must wait for oncoming traffic." },
+  // Warning
+  { c: "warnGeneral", cat: "Warning", n: "Other danger", m: "A hazard not covered by a specific sign. Slow and stay alert." },
+  { c: "warnMoose", cat: "Warning", n: "Moose / elk", m: "Wild animals may cross, especially at dawn and dusk." },
+  { c: "warnReindeer", cat: "Warning", n: "Reindeer", m: "Reindeer area (Lapland); they wander in groups — slow down." },
+  { c: "warnSlippery", cat: "Warning", n: "Slippery road", m: "Surface may be icy or wet; reduce speed, no sudden inputs." },
+  { c: "warnChildren", cat: "Warning", n: "Children", m: "School/play area; children may run out — slow right down." },
+  { c: "warnPedCross", cat: "Warning", n: "Pedestrian crossing ahead", m: "A zebra crossing is ahead; be ready to give way." },
+  { c: "warnCyclists", cat: "Warning", n: "Cyclists", m: "Cyclists may cross or join; watch for them and give room." },
+  { c: "warnRoundabout", cat: "Warning", n: "Roundabout ahead", m: "Slow and prepare to give way on entry." },
+  { c: "warnBendLeft", cat: "Warning", n: "Bend to the left", m: "A left curve ahead; reduce speed before it." },
+  { c: "warnBendRight", cat: "Warning", n: "Bend to the right", m: "A right curve ahead; reduce speed before it." },
+  { c: "warnDoubleBend", cat: "Warning", n: "Double bend", m: "A series of bends; slow and keep your lane." },
+  { c: "warnNarrow", cat: "Warning", n: "Road narrows", m: "The carriageway narrows; be ready to give or take turns." },
+  { c: "warnTwoWay", cat: "Warning", n: "Two-way traffic", m: "Oncoming traffic resumes; keep right and watch ahead." },
+  { c: "warnLights", cat: "Warning", n: "Traffic signals ahead", m: "Be ready to stop for the lights ahead." },
+  { c: "warnRoadworks", cat: "Warning", n: "Road works", m: "Workers and machinery ahead; slow and follow temporary signs." },
+  { c: "warnUneven", cat: "Warning", n: "Uneven road", m: "Bumps or poor surface; reduce speed to keep control." },
+  { c: "warnCrossing", cat: "Warning", n: "Crossroads (right-of-way)", m: "An equal crossroads ahead where the right-hand rule applies." },
+  { c: "warnLevelGuarded", cat: "Warning", n: "Level crossing with barriers", m: "A guarded rail crossing ahead; be ready to stop." },
+  { c: "warnLevelOpen", cat: "Warning", n: "Level crossing, no barriers", m: "An unguarded rail crossing; slow and check for trains." },
+  { c: "warnTram", cat: "Warning", n: "Tramway", m: "Trams cross or share the road; give them room and priority." },
+  // Prohibitory (yellow bg in Finland)
+  { c: "speed30", cat: "Prohibitory", n: "Speed limit 30", m: "Maximum 30 km/h until changed. (Yellow bg = Finland.)" },
+  { c: "speed50", cat: "Prohibitory", n: "Speed limit 50", m: "Maximum 50 km/h until changed." },
+  { c: "speed80", cat: "Prohibitory", n: "Speed limit 80", m: "Maximum 80 km/h until changed." },
+  { c: "speedEnd", cat: "Prohibitory", n: "End of speed limit", m: "The specific speed limit ends; the general limit resumes." },
+  { c: "noEntry", cat: "Prohibitory", n: "No entry", m: "Entry forbidden to all vehicles in this direction." },
+  { c: "noVehicles", cat: "Prohibitory", n: "No motor vehicles", m: "Motor vehicles are not allowed beyond this sign." },
+  { c: "noOvertake", cat: "Prohibitory", n: "No overtaking", m: "Overtaking other motor vehicles is prohibited." },
+  { c: "overtakeEnd", cat: "Prohibitory", n: "End of no overtaking", m: "The overtaking ban ends; overtake only when safe." },
+  { c: "noLeft", cat: "Prohibitory", n: "No left turn", m: "Turning left is prohibited here." },
+  { c: "noRight", cat: "Prohibitory", n: "No right turn", m: "Turning right is prohibited here." },
+  { c: "noUturn", cat: "Prohibitory", n: "No U-turn", m: "Making a U-turn is prohibited here." },
+  { c: "noParking", cat: "Prohibitory", n: "No parking", m: "No parking; a brief stop to load/drop off is allowed." },
+  { c: "noStopping", cat: "Prohibitory", n: "No stopping", m: "No stopping at all, not even briefly." },
+  { c: "noTrucks", cat: "Prohibitory", n: "No goods vehicles", m: "Lorries/goods vehicles are prohibited beyond this sign." },
+  { c: "weightLimit", cat: "Prohibitory", n: "Weight limit", m: "Vehicles over the marked weight may not proceed." },
+  { c: "heightLimit", cat: "Prohibitory", n: "Height limit", m: "Vehicles over the marked height may not pass." },
+  // Mandatory
+  { c: "mustLeft", cat: "Mandatory", n: "Turn left", m: "You must turn left; other directions forbidden." },
+  { c: "mustRight", cat: "Mandatory", n: "Turn right", m: "You must turn right; other directions forbidden." },
+  { c: "mustStraight", cat: "Mandatory", n: "Straight ahead only", m: "You must continue straight; no turning." },
+  { c: "mustStraightRight", cat: "Mandatory", n: "Straight or right", m: "You may go straight or turn right only." },
+  { c: "passLeft", cat: "Mandatory", n: "Pass on the left", m: "Pass the obstacle/island on the left side." },
+  { c: "passRight", cat: "Mandatory", n: "Pass on the right", m: "Pass the obstacle/island on the right side." },
+  { c: "roundaboutGo", cat: "Mandatory", n: "Roundabout", m: "Travel around the island in the arrows' direction." },
+  { c: "cyclePath", cat: "Mandatory", n: "Cycle path", m: "Path for cyclists; other vehicles not allowed." },
+  { c: "footPath", cat: "Mandatory", n: "Pedestrian path", m: "Path for pedestrians only." },
+  { c: "sharedPath", cat: "Mandatory", n: "Pedestrian + cycle path", m: "Shared path for pedestrians and cyclists." },
+  // Information
+  { c: "infoPedCross", cat: "Information", n: "Pedestrian crossing", m: "A zebra crossing; give way to pedestrians on/approaching it." },
+  { c: "infoParking", cat: "Information", n: "Parking", m: "Parking permitted, subject to any added panels." },
+  { c: "infoMotorway", cat: "Information", n: "Motorway", m: "Motorway rules: no slow vehicles, no stopping, keep right." },
+  { c: "infoMotorwayEnd", cat: "Information", n: "Motorway ends", m: "Motorway rules end; normal road rules resume." },
+  { c: "infoOneWay", cat: "Information", n: "One-way street", m: "Traffic flows one way, in the arrow's direction." },
+  { c: "infoDeadEnd", cat: "Information", n: "Dead end", m: "No through road; the street has no exit ahead." },
+  { c: "infoBusStop", cat: "Information", n: "Bus stop", m: "A bus stop; give way to buses pulling out in town." },
+  { c: "livingStreet", cat: "Information", n: "Living street (pihakatu)", m: "Walking pace; pedestrians and play have priority." },
+  { c: "infoHospital", cat: "Information", n: "Hospital", m: "A hospital nearby; avoid the horn and keep noise down." },
+];
+
+/* ---------- 5) TAXI ENTREPRENEUR EXAM (taksiliikenteen yrittäjäkoe) ---------- */
+/* 50 questions across the 10 official topic areas (Traficom regulation weightings):
+   Commercial 8 · Financial 9 · Vehicle&traffic law 4 · Taxation 5 · Accounting 4 ·
+   Employment 4 · Wages 4 · Social security 4 · Pensions 4 · Insurance 4 */
+const TAXI = [
+  // --- Commercial management (8) ---
+  { t: "Commercial mgmt", q: "Which company form gives the owner limited liability and has no minimum share capital requirement in Finland?", o: ["Toiminimi (sole trader)", "Osakeyhtiö (Oy)", "Avoin yhtiö (general partnership)"], a: 1, w: "An Oy is a separate legal person with limited liability, and since 2019 it has no minimum share capital. A sole trader is personally liable for business debts." },
+  { t: "Commercial mgmt", q: "As a sole trader (toiminimi), how is your liability for business debts treated?", o: ["Limited to business assets", "You are personally liable with your own assets", "No liability at all"], a: 1, w: "A sole trader and the business are the same legal person, so you answer for business debts with your personal assets." },
+  { t: "Commercial mgmt", q: "Municipal and Kela-funded taxi rides are typically awarded through:", o: ["First come, first served", "Public procurement (competitive tendering)", "Personal contacts"], a: 1, w: "Public bodies must follow procurement law; transport contracts are tendered, and operators bid to win them." },
+  { t: "Commercial mgmt", q: "A valid sales invoice must as a minimum include:", o: ["Only the total sum", "Seller and buyer details, date, itemised service, VAT rate and amount", "Just the driver's name"], a: 1, w: "Invoicing rules require identifying the parties, the date, what was sold, and the VAT breakdown so the document is valid for accounting and VAT." },
+  { t: "Commercial mgmt", q: "The main purpose of a written work plan and organisation chart in a taxi firm is to:", o: ["Satisfy curiosity", "Clarify roles, shifts and responsibilities so operations run safely and lawfully", "Replace insurance"], a: 1, w: "Planning who drives, when, and who is responsible keeps shifts legal (working-hours rules) and service reliable." },
+  { t: "Commercial mgmt", q: "Safety management in a taxi business mainly means:", o: ["Only buying a dashcam", "Systematically identifying risks and instructing drivers on vehicle, equipment and passenger safety", "Driving fast"], a: 1, w: "It is a continuous process: assess hazards, give drivers clear safety instructions, and take preventive measures." },
+  { t: "Commercial mgmt", q: "A driver must be able to take into account a passenger's functional limitations. This is part of the operator's duty to ensure:", o: ["Maximum profit", "Accessible, appropriate service for special groups", "Faster trips"], a: 1, w: "The law requires drivers to help passengers in and out and meet the special needs arising from disabilities or impairments." },
+  { t: "Commercial mgmt", q: "Accepting card payments and handling cash correctly matters commercially because it:", o: ["Is optional and irrelevant", "Affects customer service, cash flow and proper recording of income", "Only concerns the bank"], a: 1, w: "Payment methods influence customer convenience, your liquidity, and the accuracy of recorded sales for accounting and tax." },
+
+  // --- Financial management (9) ---
+  { t: "Financial mgmt", q: "An income statement (tuloslaskelma) shows:", o: ["Assets and debts at one moment", "Revenue minus expenses, i.e. profit or loss over a period", "Only the bank balance"], a: 1, w: "The income statement covers a period and reports whether income exceeded costs, giving the profit or loss." },
+  { t: "Financial mgmt", q: "A balance sheet (tase) shows:", o: ["Profit over the year", "Assets, and how they are financed (liabilities and equity), at a point in time", "Daily takings"], a: 1, w: "The balance sheet is a snapshot: what the business owns and how it is funded by debt and equity." },
+  { t: "Financial mgmt", q: "Which is a fixed cost for a taxi business?", o: ["Fuel", "The annual insurance and licence fees", "Car wash after each shift"], a: 1, w: "Fixed costs stay roughly the same regardless of kilometres driven (insurance, licence). Fuel and per-trip costs are variable." },
+  { t: "Financial mgmt", q: "Depreciation (poisto) in the accounts represents:", o: ["Cash paid this month", "Spreading a vehicle's cost over its useful life", "A type of loan"], a: 1, w: "Depreciation allocates the cost of a long-life asset like a car across the years it is used, instead of all at once." },
+  { t: "Financial mgmt", q: "Leasing a taxi instead of buying it outright mainly:", o: ["Removes all costs", "Spreads payments over time but adds financing cost and conditions", "Is always cheapest"], a: 1, w: "Leasing eases the upfront outlay and aids cash flow, but you pay financing costs and accept the contract's terms." },
+  { t: "Financial mgmt", q: "Factoring means:", o: ["Buying more cars", "Selling or borrowing against your unpaid invoices to get cash sooner", "Avoiding tax"], a: 1, w: "Factoring converts outstanding receivables into immediate cash (for a fee), improving liquidity." },
+  { t: "Financial mgmt", q: "Working capital (käyttöpääoma) is the money needed to:", o: ["Buy the company", "Cover day-to-day running costs between paying expenses and receiving income", "Pay dividends only"], a: 1, w: "It bridges the gap between spending on fuel, wages and fees and actually collecting payment from customers." },
+  { t: "Financial mgmt", q: "To judge whether the business is profitable, you would look first at:", o: ["The colour of the car", "Profit and key ratios from the income statement", "The number of phone calls"], a: 1, w: "Profitability is read from results and financial ratios (e.g. operating margin), not from activity alone." },
+  { t: "Financial mgmt", q: "Good liquidity means the business:", o: ["Owns many cars", "Can pay its bills on time as they fall due", "Has high revenue only"], a: 1, w: "Liquidity is about having cash available when payments are due; high revenue with poor cash timing can still cause trouble." },
+
+  // --- Vehicle & traffic legislation (4) ---
+  { t: "Vehicle & traffic law", q: "A vehicle used in taxi traffic must be:", o: ["Any private car, no change needed", "Registered for licensed (permit) use", "Painted yellow"], a: 1, w: "The car must be entered into licensed use in the register before it is used to carry passengers for hire." },
+  { t: "Vehicle & traffic law", q: "A taxi driver's permit (taksinkuljettajan ajolupa) is generally valid for:", o: ["1 year", "5 years (2 years if over 68)", "Lifetime"], a: 1, w: "The personal driver permit is issued for five years at a time, but only two years for drivers over 68." },
+  { t: "Vehicle & traffic law", q: "A taxi transport licence (taksiliikennelupa) is:", o: ["Personal to one car, valid 1 year", "Company-specific and valid 10 years", "Issued by the police"], a: 1, w: "Traficom grants the operating licence to the company for ten years; it is not limited to a set number of cars." },
+  { t: "Vehicle & traffic law", q: "Regarding pricing, the taxi operator must:", o: ["Hide prices", "Make price information clearly available to the customer (e.g. a price example)", "Charge any amount with no disclosure"], a: 1, w: "Customers must be able to see pricing before the trip; clear price information and examples are required so fares are transparent." },
+
+  // --- Taxation (5) ---
+  { t: "Taxation", q: "What VAT rate applies to taxi passenger transport in Finland (2026)?", o: ["25.5%", "13.5%", "0%"], a: 1, w: "Domestic passenger transport, including taxi, is at the reduced rate of 13.5% (lowered from 14% on 1 Jan 2026)." },
+  { t: "Taxation", q: "You must register for VAT once annual turnover exceeds:", o: ["€5,000", "€20,000", "€100,000"], a: 1, w: "The VAT registration threshold rose to €20,000 of annual turnover from 2025; above it you must register." },
+  { t: "Taxation", q: "A limited company (Oy) pays corporate income tax at:", o: ["20%", "13.5%", "30%"], a: 0, w: "Finland's corporate income tax is a flat 20% on company profits (a cut to 18% is planned for 2027)." },
+  { t: "Taxation", q: "A sole trader's business profit is:", o: ["Tax-free", "Taxed as the entrepreneur's income (earned and capital income portions)", "Taxed only at 20%"], a: 1, w: "A toiminimi's profit is taxed in the entrepreneur's own taxation, split into capital-income and earned-income parts." },
+  { t: "Taxation", q: "VAT returns and payments are handled through:", o: ["Paper letters only", "The Tax Administration's MyTax (OmaVero) service, usually monthly", "The police"], a: 1, w: "VAT is self-assessed and filed in MyTax; the default period is monthly, with the deadline on the 12th of the second following month." },
+
+  // --- Accounting (4) ---
+  { t: "Accounting", q: "Every business in Finland is:", o: ["Free of bookkeeping duties", "Obliged to keep accounts (kirjanpitovelvollinen)", "Only audited if large"], a: 1, w: "Bookkeeping is a legal obligation for all businesses under the Accounting Act, regardless of size." },
+  { t: "Accounting", q: "Most businesses must keep their books using:", o: ["No system", "Double-entry bookkeeping", "Only a notebook of cash"], a: 1, w: "Double-entry bookkeeping (each transaction on two accounts) is the standard required method." },
+  { t: "Accounting", q: "At the end of the financial year a business prepares:", o: ["Nothing", "Financial statements (tilinpäätös): income statement and balance sheet", "Only a tax form"], a: 1, w: "The financial statements summarise the year with an income statement and balance sheet (plus notes as required)." },
+  { t: "Accounting", q: "Accounting vouchers and records must be:", o: ["Thrown away monthly", "Retained for the statutory period (vouchers at least 6 years)", "Kept for one week"], a: 1, w: "The Accounting Act requires records to be retained: vouchers for at least six years and accounting books longer." },
+
+  // --- Employment law (4) ---
+  { t: "Employment law", q: "An employment contract in Finland:", o: ["Must always be notarised", "Can be oral or written, but written is strongly recommended", "Is not allowed for drivers"], a: 1, w: "A contract is valid orally, but a written one protects both parties by recording the agreed terms." },
+  { t: "Employment law", q: "Maximum working hours and rest periods for drivers are set mainly by:", o: ["The driver alone", "The Working Hours Act (and any collective agreement)", "The customer"], a: 1, w: "The Working Hours Act governs limits and rest; a sector collective agreement may add stricter terms." },
+  { t: "Employment law", q: "Paid annual leave accrues under the:", o: ["Road Traffic Act", "Annual Holidays Act", "VAT Act"], a: 1, w: "The Annual Holidays Act (vuosilomalaki) sets how paid holiday is earned and taken." },
+  { t: "Employment law", q: "To end an employee's contract by dismissal, the employer must:", o: ["Need no reason", "Have lawful grounds and observe notice periods", "Pay nothing ever"], a: 1, w: "Termination requires proper grounds (individual or financial/production) and the statutory or agreed notice period." },
+
+  // --- Wages (4) ---
+  { t: "Wages", q: "Is there a single statutory minimum wage in Finland?", o: ["Yes, set by law for all", "No — minimum pay comes from collective agreements (TES)", "Yes, €5/hour"], a: 1, w: "Finland has no general statutory minimum wage; binding minimums come from the applicable collective agreement." },
+  { t: "Wages", q: "On every payday the employer must give the employee:", o: ["Nothing", "A payslip (palkkalaskelma) showing pay and deductions", "Only cash"], a: 1, w: "A written payslip itemising gross pay, withholdings and net pay is required each time wages are paid." },
+  { t: "Wages", q: "From an employee's wages the employer must:", o: ["Deduct nothing", "Withhold advance tax (ennakonpidätys) per the tax card", "Add VAT"], a: 1, w: "The employer withholds advance income tax according to the employee's tax card and remits it to the Tax Administration." },
+  { t: "Wages", q: "Overtime work is generally:", o: ["Unpaid", "Compensated at an increased rate as set by law/agreement", "Always banned"], a: 1, w: "Overtime must be compensated with raised pay (or agreed time off) under the Working Hours Act and any collective agreement." },
+
+  // --- Social security (4) ---
+  { t: "Social security", q: "An employer must report paid wages to the:", o: ["Local newspaper", "Incomes Register (tulorekisteri)", "Nobody"], a: 1, w: "Wages and related data must be reported to the national Incomes Register, normally within five days of payment." },
+  { t: "Social security", q: "For employees, the employer must take out:", o: ["No insurance", "Statutory occupational accident and disease insurance", "Only travel insurance"], a: 1, w: "Occupational accident and disease insurance (työtapaturmavakuutus) is a compulsory employer cover for staff." },
+  { t: "Social security", q: "The employer's health insurance contribution is:", o: ["Voluntary", "A statutory contribution paid by the employer on wages", "Paid by the customer"], a: 1, w: "Employers pay the health insurance contribution (sairausvakuutusmaksu) as part of statutory social charges on wages." },
+  { t: "Social security", q: "Employer social-security obligations arise:", o: ["Never for small firms", "When the firm pays wages to employees", "Only for limited companies"], a: 1, w: "Any employer paying wages must handle the related social-security contributions, regardless of company form or size." },
+
+  // --- Pensions (4) ---
+  { t: "Pensions", q: "Employees in a taxi firm are insured for earnings-related pension under:", o: ["YEL", "TyEL (the Employees Pensions Act)", "No scheme"], a: 1, w: "Employees' earnings-related pension is arranged under TyEL; the employer takes out and pays the TyEL insurance." },
+  { t: "Pensions", q: "A taxi entrepreneur (self-employed) insures their own pension under:", o: ["TyEL", "YEL (the Self-Employed Persons' Pensions Act)", "Nothing"], a: 1, w: "Self-employed persons arrange their own pension and social cover through YEL when the conditions are met." },
+  { t: "Pensions", q: "YEL contributions are based on:", o: ["Actual yearly profit", "The confirmed YEL income (työtulo) you set, reflecting your work input", "The car's value"], a: 1, w: "YEL is based on your confirmed YEL income, which should match the value of your work — not directly on profit." },
+  { t: "Pensions", q: "TyEL pension contributions are:", o: ["Paid only by the employee", "Shared between employer and employee, with the employer remitting them", "Optional"], a: 1, w: "The TyEL contribution is split between employer and employee; the employer withholds the employee's share and pays the total." },
+
+  // --- Insurance (4) ---
+  { t: "Insurance", q: "Which insurance is compulsory for the taxi vehicle?", o: ["Comprehensive (kasko)", "Motor third-party liability (liikennevakuutus)", "Travel insurance"], a: 1, w: "Motor third-party liability insurance is mandatory for every vehicle in use; without it the car may not be driven." },
+  { t: "Insurance", q: "Motor third-party liability insurance (liikennevakuutus) covers:", o: ["Damage to your own car", "Injury and damage caused to others (incl. passengers)", "Engine wear"], a: 1, w: "It pays for personal injury and third-party property damage, including passengers' injuries — but not your own vehicle's damage." },
+  { t: "Insurance", q: "Damage to your own taxi (e.g. collision you cause) is covered by:", o: ["Liikennevakuutus", "Voluntary comprehensive (kasko) insurance", "Nothing exists for that"], a: 1, w: "Your own vehicle's damage is covered only if you hold voluntary comprehensive (kasko) insurance." },
+  { t: "Insurance", q: "A passenger is injured in a crash in your taxi. Their injuries are primarily covered by:", o: ["The passenger's own travel policy only", "The vehicle's compulsory motor liability insurance", "No insurance"], a: 1, w: "Compulsory motor liability insurance covers bodily injury to people, including the taxi's passengers." },
+];
+
+/* ===================== ENGINE: palette, signs, scene ===================== */
+const C = {
+  nightDeep: "#06101F", night: "#0A1A2F", panel: "#10243F", panelHi: "#163052",
+  line: "#21406a", snow: "#F2F7FC", mist: "#9DB4CE",
+  amber: "#FF6A1A", amberSoft: "#FFB073", blue: "#3D8BFF",
+  green: "#36C98A", greenDeep: "#0d3a2a", red: "#FF5B6E", redDeep: "#3a1320", gold: "#FFC857",
+};
+const YEL = "#F4C20D", RED = "#D81E2C", BLU = "#0A4DA2", BLK = "#101418", WHT = "#FFFFFF", GRY = "#9AA6B4";
+
+function Styles() {
+  return (<style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap');
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    .rt{font-family:'Inter',system-ui,sans-serif;color:${C.snow};min-height:100%;
+      background:radial-gradient(1100px 560px at 82% -10%,rgba(61,139,255,.16),transparent 60%),
+      radial-gradient(820px 460px at -10% 112%,rgba(255,106,26,.12),transparent 55%),
+      linear-gradient(180deg,${C.nightDeep},${C.night})}
+    .dsp{font-family:'Sora',system-ui,sans-serif;letter-spacing:-.02em}
+    .wrap{max-width:760px;margin:0 auto;padding:20px 16px 64px}
+    .eye{font-family:'Sora';font-size:11px;font-weight:700;letter-spacing:.26em;text-transform:uppercase;color:${C.amberSoft}}
+    .card{background:linear-gradient(180deg,${C.panel},${C.nightDeep});border:1px solid ${C.line};border-radius:18px}
+    .btn{font-family:'Sora';font-weight:600;cursor:pointer;border:none;border-radius:14px;transition:transform .12s,filter .12s,background .2s}
+    .btn:active{transform:translateY(1px) scale(.995)}
+    .btn:focus-visible,.opt:focus-visible,.chip:focus-visible{outline:3px solid ${C.gold};outline-offset:2px}
+    .opt{width:100%;text-align:left;cursor:pointer;font-family:'Inter';background:${C.panelHi};border:1px solid ${C.line};
+      color:${C.snow};border-radius:14px;padding:15px;font-size:15.5px;line-height:1.35;display:flex;gap:12px;align-items:flex-start;
+      transition:border-color .15s,background .15s,transform .1s}
+    .opt:hover:not(:disabled){border-color:${C.blue};background:#193859}
+    .opt:disabled{cursor:default}
+    .key{flex:0 0 26px;height:26px;border-radius:8px;display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:13px;
+      background:${C.night};border:1px solid ${C.line};color:${C.mist}}
+    .track{height:8px;border-radius:99px;background:${C.line};overflow:hidden}
+    .fill{height:100%;border-radius:99px;background:linear-gradient(90deg,${C.amber},${C.gold});transition:width .4s}
+    .chip{font-family:'Sora';font-weight:600;font-size:12.5px;border-radius:99px;padding:7px 13px;border:1px solid ${C.line};
+      background:${C.panelHi};color:${C.snow};cursor:pointer;transition:all .15s}
+    .chip:hover{border-color:${C.blue}} .chip.on{background:${C.blue};border-color:${C.blue};color:#04111f}
+    .rev{animation:up .34s ease both}
+    @keyframes up{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    @keyframes pop{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+    .num{font-variant-numeric:tabular-nums}
+    .signtile{background:${C.snow};border-radius:14px;padding:12px;display:grid;place-items:center;cursor:pointer;border:1px solid ${C.line};transition:transform .12s}
+    .signtile:hover{transform:translateY(-2px)}
+    .yn{font-family:'Sora';font-weight:800;font-size:20px;border:none;border-radius:14px;cursor:pointer;padding:16px;transition:transform .1s,filter .15s}
+    .yn:active{transform:scale(.97)}
+    @media (prefers-reduced-motion:reduce){.rev,.btn,.opt,.fill,.signtile,.yn{animation:none!important;transition:none!important}}
+  `}</style>);
+}
+
+/* ---------- SIGN RENDERER (50+) ---------- */
+function Tri({ children }) { // warning: yellow triangle, red border
+  return (<g><polygon points="50,9 93,86 7,86" fill={YEL} stroke={RED} strokeWidth="8" strokeLinejoin="round" />{children}</g>);
+}
+function Circ({ fill, border, children, bw = 8 }) {
+  return (<g><circle cx="50" cy="50" r="44" fill={fill} stroke={border} strokeWidth={bw} />{children}</g>);
+}
+function Sq({ fill = BLU, children }) { return (<g><rect x="9" y="9" width="82" height="82" rx="4" fill={fill} />{children}</g>); }
+const T = (x, y, s, fill, txt, w = "800") => <text x={x} y={y} fontSize={s} fontWeight={w} fill={fill} textAnchor="middle" fontFamily="Arial">{txt}</text>;
+
+function SignSVG({ code, size = 92 }) {
+  const st = { width: size, height: size, display: "block" };
+  let inner;
+  switch (code) {
+    // PRIORITY
+    case "yield": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><polygon points="50,90 8,16 92,16" fill={WHT} stroke={RED} strokeWidth="9" strokeLinejoin="round" /></svg>;
+    case "stop": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><polygon points="31,7 69,7 93,31 93,69 69,93 31,93 7,69 7,31" fill={RED} stroke={WHT} strokeWidth="4" />{T(50, 60, 21, WHT, "STOP")}</svg>;
+    case "priorityRoad": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><rect x="22" y="22" width="56" height="56" transform="rotate(45 50 50)" fill={YEL} stroke={BLK} strokeWidth="3" /><rect x="34" y="34" width="32" height="32" transform="rotate(45 50 50)" fill={WHT} /></svg>;
+    case "priorityEnds": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><rect x="22" y="22" width="56" height="56" transform="rotate(45 50 50)" fill={GRY} stroke={BLK} strokeWidth="3" /><rect x="34" y="34" width="32" height="32" transform="rotate(45 50 50)" fill={WHT} /><line x1="20" y1="80" x2="80" y2="20" stroke={BLK} strokeWidth="5" /></svg>;
+    case "priorityOncoming": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={WHT} border={BLK} bw="3"><polygon points="34,16 40,16 40,84 34,84" fill={RED} /><polygon points="44,16 50,16 50,84 44,84 44,16" fill={BLU} transform="translate(16 0)" /><polygon points="55,10 65,10 60,2" fill={BLU} /></Circ><polygon points="34,12 40,12 37,4" fill={RED} /></svg>;
+    case "yieldOncoming": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={WHT} border={RED} bw="8"><polygon points="36,18 42,18 42,82 36,82" fill={RED} /><polygon points="58,18 64,18 64,82 58,82" fill={BLK} /><polygon points="63,18 59,18 61,10" fill={BLK} /></Circ></svg>;
+    // WARNING
+    case "warnGeneral": inner = <><rect x="46" y="36" width="8" height="26" fill={BLK} /><rect x="46" y="66" width="8" height="8" fill={BLK} /></>; break;
+    case "warnMoose": inner = <path d="M34 76 L34 56 Q34 48 42 48 L56 48 Q62 48 62 42 L62 38 L70 32 L65 30 L62 36 Q60 40 56 40 L52 40 L52 34 L48 38 L48 40 Q40 40 38 46 L30 48 L34 52 Z M58 60 v16 M40 60 v16" fill={BLK} stroke={BLK} strokeWidth="1.5" />; break;
+    case "warnReindeer": inner = <path d="M36 76 L36 56 Q36 50 44 50 L56 50 Q62 50 62 44 L66 38 L60 38 L58 44 Q56 48 52 48 L52 40 L46 44 Q40 44 38 50 L32 50 L36 54 Z M40 60 l-2 16 M58 60 l2 16 M40 44 l-6 -8 M44 42 l-2 -10" stroke={BLK} strokeWidth="3" fill={BLK} />; break;
+    case "warnSlippery": inner = <><circle cx="36" cy="52" r="5" fill={BLK} /><circle cx="60" cy="52" r="5" fill={BLK} /><path d="M28 72 q8 -8 16 0 t16 0" stroke={BLK} strokeWidth="4" fill="none" /><path d="M58 42 l11 -8 M58 50 l13 -4" stroke={BLK} strokeWidth="3" /></>; break;
+    case "warnChildren": inner = <><circle cx="42" cy="44" r="5" fill={BLK} /><path d="M42 49 v12 l-6 11 m6 -11 l6 11 m-6 -16 l-7 4 m7 -4 l7 4" stroke={BLK} strokeWidth="3" fill="none" /><circle cx="60" cy="48" r="4" fill={BLK} /><path d="M60 52 v10 l-5 9 m5 -9 l5 9 m-5 -14 l-6 3 m6 -3 l6 3" stroke={BLK} strokeWidth="3" fill="none" /></>; break;
+    case "warnPedCross": inner = <><circle cx="50" cy="40" r="6" fill={BLK} /><path d="M50 46 v14 l-7 12 m7 -12 l7 12 m-7 -18 l-8 5 m8 -5 l8 5" stroke={BLK} strokeWidth="4" fill="none" /></>; break;
+    case "warnCyclists": inner = <><circle cx="36" cy="64" r="9" fill="none" stroke={BLK} strokeWidth="3" /><circle cx="64" cy="64" r="9" fill="none" stroke={BLK} strokeWidth="3" /><path d="M36 64 l8 -16 12 0 m-8 16 l8 -16 M50 48 l6 16" stroke={BLK} strokeWidth="3" fill="none" /><circle cx="56" cy="40" r="4" fill={BLK} /></>; break;
+    case "warnRoundabout": inner = <><path d="M40 70 A16 16 0 1 1 66 56" fill="none" stroke={BLK} strokeWidth="5" /><polygon points="64,46 73,57 58,60" fill={BLK} /></>; break;
+    case "warnBendLeft": inner = <path d="M56 78 L56 56 Q56 40 42 40 L42 30 L28 44 L42 58 L42 50 Q48 50 48 60 L48 78 Z" fill={BLK} />; break;
+    case "warnBendRight": inner = <path d="M44 78 L44 56 Q44 40 58 40 L58 30 L72 44 L58 58 L58 50 Q52 50 52 60 L52 78 Z" fill={BLK} />; break;
+    case "warnDoubleBend": inner = <path d="M46 78 V60 Q46 52 54 52 Q62 52 62 44 V40 H68 L60 30 L52 40 H58 V44 Q58 48 54 48 Q46 48 46 56 V40 Q46 34 40 34 H34 L42 24 L50 34 H44 Q44 56 44 78 Z" fill={BLK} transform="scale(0.9) translate(6 6)" />; break;
+    case "warnNarrow": inner = <><path d="M34 78 L42 40 M66 78 L58 40" stroke={BLK} strokeWidth="5" fill="none" /></>; break;
+    case "warnTwoWay": inner = <><path d="M42 40 V72 M42 40 l-6 8 m6 -8 l6 8" stroke={BLK} strokeWidth="4" fill="none" /><path d="M58 72 V40 M58 72 l-6 -8 m6 8 l6 -8" stroke={BLK} strokeWidth="4" fill="none" /></>; break;
+    case "warnLights": inner = <><rect x="42" y="34" width="16" height="36" rx="4" fill={BLK} /><circle cx="50" cy="42" r="4" fill={RED} /><circle cx="50" cy="52" r="4" fill={YEL} /><circle cx="50" cy="62" r="4" fill={C.green} /></>; break;
+    case "warnRoadworks": inner = <><circle cx="50" cy="40" r="5" fill={BLK} /><path d="M50 45 v10 m0 0 l-8 16 m8 -16 l8 16" stroke={BLK} strokeWidth="3" fill="none" /><path d="M42 50 l16 6" stroke={BLK} strokeWidth="3" /><rect x="60" y="58" width="12" height="12" fill={BLK} /></>; break;
+    case "warnUneven": inner = <path d="M28 64 q8 -16 16 0 t16 0 t16 0" stroke={BLK} strokeWidth="5" fill="none" />; break;
+    case "warnCrossing": inner = <><rect x="46" y="34" width="8" height="40" fill={BLK} /><rect x="30" y="50" width="40" height="8" fill={BLK} /></>; break;
+    case "warnLevelGuarded": inner = <><rect x="28" y="50" width="44" height="6" fill={BLK} /><rect x="28" y="44" width="6" height="18" fill={BLK} /></>; break;
+    case "warnLevelOpen": inner = <><path d="M30 44 L70 64 M70 44 L30 64" stroke={BLK} strokeWidth="6" /></>; break;
+    case "warnTram": inner = <><rect x="40" y="34" width="20" height="30" rx="3" fill={BLK} /><rect x="44" y="38" width="12" height="8" fill={YEL} /><path d="M50 34 V26" stroke={BLK} strokeWidth="3" /><circle cx="45" cy="66" r="3" fill={BLK} /><circle cx="55" cy="66" r="3" fill={BLK} /></>; break;
+    // PROHIBITORY (yellow bg, red border) and speed
+    case "speed30": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}>{T(50, 66, 40, BLK, "30")}</Circ></svg>;
+    case "speed50": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}>{T(50, 66, 40, BLK, "50")}</Circ></svg>;
+    case "speed80": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}>{T(50, 66, 40, BLK, "80")}</Circ></svg>;
+    case "speedEnd": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={WHT} border={GRY}>{T(50, 64, 36, GRY, "50")}</Circ><line x1="22" y1="78" x2="78" y2="22" stroke={BLK} strokeWidth="5" /></svg>;
+    case "noEntry": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={RED} border={WHT} bw="3"><rect x="22" y="43" width="56" height="14" fill={WHT} /></Circ></svg>;
+    case "noVehicles": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={WHT} border={RED} /></svg>;
+    case "noOvertake": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><rect x="30" y="40" width="16" height="26" rx="3" fill={RED} /><rect x="54" y="40" width="16" height="26" rx="3" fill={BLK} /></Circ></svg>;
+    case "overtakeEnd": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={GRY} border={GRY} bw="3"><rect x="30" y="40" width="16" height="26" rx="3" fill={WHT} /><rect x="54" y="40" width="16" height="26" rx="3" fill="#444" /></Circ><line x1="20" y1="80" x2="80" y2="20" stroke={BLK} strokeWidth="5" /></svg>;
+    case "noLeft": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><path d="M62 44 H46 V34 L30 50 L46 66 V56 H62 Z" fill={BLK} /><line x1="24" y1="76" x2="76" y2="24" stroke={RED} strokeWidth="7" /></Circ></svg>;
+    case "noRight": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><path d="M38 44 H54 V34 L70 50 L54 66 V56 H38 Z" fill={BLK} /><line x1="24" y1="76" x2="76" y2="24" stroke={RED} strokeWidth="7" /></Circ></svg>;
+    case "noUturn": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><path d="M38 70 V48 a12 12 0 0 1 24 0 V62" fill="none" stroke={BLK} strokeWidth="6" /><polygon points="55,62 69,62 62,74" fill={BLK} /><line x1="24" y1="76" x2="76" y2="24" stroke={RED} strokeWidth="7" /></Circ></svg>;
+    case "noParking": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={RED}><line x1="22" y1="78" x2="78" y2="22" stroke={RED} strokeWidth="9" />{T(50, 60, 30, WHT, "P")}</Circ></svg>;
+    case "noStopping": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={RED}><line x1="22" y1="78" x2="78" y2="22" stroke={RED} strokeWidth="9" /><line x1="22" y1="22" x2="78" y2="78" stroke={RED} strokeWidth="9" /></Circ></svg>;
+    case "noTrucks": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><rect x="28" y="44" width="26" height="18" fill={RED} /><rect x="54" y="50" width="16" height="12" fill={RED} /><circle cx="38" cy="66" r="4" fill={BLK} /><circle cx="60" cy="66" r="4" fill={BLK} /></Circ></svg>;
+    case "weightLimit": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}>{T(50, 58, 24, BLK, "12")}{T(50, 74, 12, BLK, "t", "700")}</Circ></svg>;
+    case "heightLimit": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={YEL} border={RED}><path d="M30 34 V66 M70 34 V66" stroke={BLK} strokeWidth="4" /><path d="M30 50 H70 M30 50 l6 -5 m-6 5 l6 5 M70 50 l-6 -5 m6 5 l-6 5" stroke={BLK} strokeWidth="3" />{T(50, 80, 12, BLK, "4m", "700")}</Circ></svg>;
+    // MANDATORY
+    case "mustLeft": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M64 42 H44 V30 L26 50 L44 70 V58 H64 Z" fill={WHT} /></Circ></svg>;
+    case "mustRight": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M36 42 H56 V30 L74 50 L56 70 V58 H36 Z" fill={WHT} /></Circ></svg>;
+    case "mustStraight": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M42 70 V44 H30 L50 24 L70 44 H58 V70 Z" fill={WHT} /></Circ></svg>;
+    case "mustStraightRight": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M44 72 V52 H34 L50 34 L66 52 H56 V58 H70 V46 L80 56 L70 66 V60 H56 V72 Z" fill={WHT} transform="scale(.85) translate(8 6)" /></Circ></svg>;
+    case "passLeft": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M58 30 L40 50 L58 70 V58 H64 V42 H58 Z" fill={WHT} /></Circ></svg>;
+    case "passRight": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M42 30 L60 50 L42 70 V58 H36 V42 H42 Z" fill={WHT} /></Circ></svg>;
+    case "roundaboutGo": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><path d="M34 60 A20 20 0 1 1 44 70" fill="none" stroke={WHT} strokeWidth="6" /><path d="M66 40 A20 20 0 1 1 56 30" fill="none" stroke={WHT} strokeWidth="6" /><polygon points="40,72 30,66 44,57" fill={WHT} /><polygon points="60,28 70,34 56,43" fill={WHT} /></Circ></svg>;
+    case "cyclePath": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><circle cx="36" cy="60" r="9" fill="none" stroke={WHT} strokeWidth="3" /><circle cx="64" cy="60" r="9" fill="none" stroke={WHT} strokeWidth="3" /><path d="M36 60 l8 -14 12 0 m-8 14 l8 -14 M50 46 l6 14" stroke={WHT} strokeWidth="3" fill="none" /><circle cx="56" cy="38" r="4" fill={WHT} /></Circ></svg>;
+    case "footPath": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><circle cx="50" cy="34" r="6" fill={WHT} /><path d="M50 40 v16 l-7 14 m7 -14 l7 14 m-7 -20 l-8 5 m8 -5 l8 5" stroke={WHT} strokeWidth="4" fill="none" /></Circ></svg>;
+    case "sharedPath": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Circ fill={BLU} border={BLU}><circle cx="34" cy="36" r="5" fill={WHT} /><path d="M34 41 v12 l-5 10 m5 -10 l5 10 m-5 -15 l-6 4 m6 -4 l6 4" stroke={WHT} strokeWidth="3" fill="none" /><circle cx="58" cy="62" r="8" fill="none" stroke={WHT} strokeWidth="3" /><circle cx="72" cy="62" r="8" fill="none" stroke={WHT} strokeWidth="3" /><path d="M58 62 l6 -12 8 0 m-6 12 l6 -12" stroke={WHT} strokeWidth="3" fill="none" /><circle cx="70" cy="44" r="3.5" fill={WHT} /></Circ></svg>;
+    // INFO
+    case "infoPedCross": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq><polygon points="50,24 78,76 22,76" fill={WHT} /><circle cx="50" cy="44" r="5" fill={BLK} /><path d="M50 49 v12 l-6 11 m6 -11 l6 11 m-6 -15 l-7 4 m7 -4 l7 4" stroke={BLK} strokeWidth="3.5" fill="none" /></Sq></svg>;
+    case "infoParking": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq>{T(50, 72, 54, WHT, "P")}</Sq></svg>;
+    case "infoMotorway": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq><path d="M30 78 L42 26 H50 L40 78 Z M58 78 L66 26 H74 L70 78 Z" fill={WHT} /><rect x="30" y="74" width="44" height="6" fill={WHT} /><rect x="44" y="30" width="14" height="6" fill={WHT} /></Sq></svg>;
+    case "infoMotorwayEnd": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq fill={GRY}><path d="M30 78 L42 26 H50 L40 78 Z M58 78 L66 26 H74 L70 78 Z" fill={WHT} /><rect x="30" y="74" width="44" height="6" fill={WHT} /></Sq><line x1="16" y1="84" x2="84" y2="16" stroke={RED} strokeWidth="5" /></svg>;
+    case "infoOneWay": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><rect x="14" y="38" width="72" height="24" rx="3" fill={BLU} /><path d="M30 50 H64 M64 50 l-9 -7 m9 7 l-9 7" stroke={WHT} strokeWidth="5" fill="none" /></svg>;
+    case "infoDeadEnd": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq><rect x="46" y="50" width="8" height="26" fill={WHT} /><rect x="46" y="30" width="8" height="14" fill={RED} /><rect x="38" y="30" width="24" height="6" fill={RED} /></Sq></svg>;
+    case "infoBusStop": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq fill={WHT}><rect x="30" y="34" width="40" height="28" rx="4" fill="#1a7" /><rect x="34" y="38" width="32" height="12" fill={WHT} /><circle cx="40" cy="64" r="4" fill={BLK} /><circle cx="60" cy="64" r="4" fill={BLK} /></Sq></svg>;
+    case "livingStreet": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq><path d="M30 70 h40 M34 70 v-8 h32 v8" stroke={WHT} strokeWidth="3" fill="none" /><circle cx="40" cy="40" r="4" fill={WHT} /><path d="M40 44 v8 l-3 8 m3 -8 l3 8" stroke={WHT} strokeWidth="2.5" fill="none" /><rect x="54" y="50" width="14" height="9" rx="2" fill={WHT} /><circle cx="57" cy="60" r="2.5" fill={WHT} /><circle cx="65" cy="60" r="2.5" fill={WHT} /><circle cx="62" cy="36" r="3" fill={WHT} /></Sq></svg>;
+    case "infoHospital": return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Sq>{T(50, 64, 40, WHT, "H")}</Sq></svg>;
+    default: inner = <rect x="40" y="40" width="20" height="20" fill={BLK} />;
+  }
+  // warning wrapper for the `break` cases
+  return <svg viewBox="0 0 100 100" width={size} height={size} preserveAspectRatio="xMidYMid meet" style={st}><Tri>{inner}</Tri></svg>;
+}
+
+/* ---------- SCENE RENDERER (driver's-eye traffic situations) ---------- */
+const HZ = 92, BY = 224, VPX = 180, CAM = 0.46; // horizon y, bottom y, vanishing x, camera in right lane
+function persp(laneX, depth, vpx = VPX) {
+  const y = BY - (BY - HZ) * depth;
+  const spread = 172;
+  const halfW = spread * (1 - depth) + 4 * depth;
+  const x = vpx + (laneX - CAM) * spread * (1 - depth); // lateral offset is measured from the camera's lane
+  const scale = 1 - depth * 0.9;
+  return { x, y, scale, halfW };
+}
+function skyColor(weather) {
+  if (weather === "night") return "#0b1020";
+  if (weather === "fog") return "#b9c2c9";
+  if (weather === "snow") return "#cdd6de";
+  if (weather === "rain" || weather === "overcast") return "#7e8b97";
+  return "#7ec5f2";
+}
+function Scene({ spec, reveal }) {
+  const s = spec.scene || {};
+  const w = spec.weather;
+  const vpx = s.road === "curveLeft" ? 140 : s.road === "curveRight" ? 220 : VPX;
+  const el = [];
+  const sky = skyColor(w);
+  const ground = w === "snow" ? "#e7edf2" : w === "night" ? "#1a2230" : "#5c7a4f";
+  const roadCol = w === "night" ? "#33373d" : "#6b7178";
+  const ln = w === "night" ? "#d9dde2" : "#f3f5f7";
+
+  // sky + ground
+  el.push(<rect key="sky" x="0" y="0" width="360" height={HZ} fill={sky} />);
+  el.push(<rect key="grd" x="0" y={HZ} width="360" height={BY - HZ + 16} fill={ground} />);
+  // buildings hint for city
+  if (spec.env === "city" || spec.env === "residential") {
+    el.push(<g key="bld" opacity={w === "night" ? .5 : .8}>
+      <rect x="6" y="58" width="64" height={HZ - 58} fill={w === "night" ? "#2a3340" : "#c9b89a"} />
+      <rect x="292" y="50" width="62" height={HZ - 50} fill={w === "night" ? "#2a3340" : "#caa07a"} />
+    </g>);
+  }
+  // road polygon
+  const L0 = persp(-1, 0, vpx), R0 = persp(1, 0, vpx), L1 = persp(-1, 1, vpx), R1 = persp(1, 1, vpx);
+  el.push(<polygon key="road" points={`${L0.x},${L0.y} ${R0.x},${R0.y} ${R1.x},${R1.y} ${L1.x},${L1.y}`} fill={roadCol} />);
+  // cross / T street
+  const cd = s.crossDepth || 0.32;
+  if (s.road === "cross" || s.road === "tjunction") {
+    const a = persp(-1, cd, vpx), b = persp(1, cd, vpx);
+    const hw = 60 * (1 - cd);
+    el.push(<polygon key="cross" points={`${a.x - hw},${a.y} ${b.x + hw},${b.y} ${b.x + hw * .5},${b.y - 16 * (1 - cd)} ${a.x - hw * .5},${a.y - 16 * (1 - cd)}`} fill={roadCol} />);
+  }
+  if (s.road === "roundabout") {
+    const ctr = persp(0, 0.42, vpx);
+    el.push(<ellipse key="ri" cx={ctr.x} cy={ctr.y} rx="34" ry="13" fill={w === "snow" ? "#dfe6ec" : "#4f7a45"} stroke={ln} strokeWidth="2" />);
+  }
+  // centre line (stops before a junction/stop line if present)
+  const clEnd = s.stopLine != null ? s.stopLine - 0.04 : ((s.road === "cross" || s.road === "tjunction") ? cd - 0.06 : 0.92);
+  if (s.center === "solid") {
+    const t = persp(0, Math.max(0.1, clEnd), vpx);
+    el.push(<polygon key="cl" points={`${persp(-0.03, 0, vpx).x},${BY} ${persp(0.03, 0, vpx).x},${BY} ${t.x + 2 * t.scale},${t.y} ${t.x - 2 * t.scale},${t.y}`} fill={ln} />);
+  } else if (s.center === "dashed") {
+    for (let d = 0.04; d < clEnd; d += 0.16) {
+      const p = persp(0, d, vpx), p2 = persp(0, Math.min(clEnd, d + 0.07), vpx);
+      el.push(<polygon key={"d" + d} points={`${p.x - 3 * p.scale},${p.y} ${p.x + 3 * p.scale},${p.y} ${p2.x + 2 * p2.scale},${p2.y} ${p2.x - 2 * p2.scale},${p2.y}`} fill={ln} />);
+    }
+  }
+  // stop line across the approach (my carriageway: centre line to right edge)
+  if (s.stopLine != null) {
+    const a = persp(0.02, s.stopLine, vpx), b = persp(1, s.stopLine, vpx);
+    el.push(<line key="stopln" x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={ln} strokeWidth={Math.max(3, 9 * a.scale)} />);
+  }
+  // lane divider for 2 lanes
+  if (s.lanes === 2) for (let d = 0.04; d < 0.9; d += 0.16) {
+    const p = persp(0.5, d, vpx), p2 = persp(0.5, d + 0.07, vpx);
+    el.push(<polygon key={"ld" + d} points={`${p.x - 2 * p.scale},${p.y} ${p.x + 2 * p.scale},${p.y} ${p2.x + 1.5 * p2.scale},${p2.y} ${p2.x - 1.5 * p2.scale},${p2.y}`} fill={ln} opacity=".8" />);
+  }
+  // painted arrows
+  (s.arrows || []).forEach((ar, i) => {
+    const p = persp(ar.lane, 0.34, vpx); const sc = p.scale * 1.9;
+    let path;
+    if (ar.dir === "left") path = `M${p.x + 8 * sc} ${p.y} h-12 v-5 l-9 8 l9 8 v-5 h12 z`;
+    else if (ar.dir === "right") path = `M${p.x - 8 * sc} ${p.y} h12 v-5 l9 8 l-9 8 v-5 h-12 z`;
+    else path = `M${p.x - 4 * sc} ${p.y + 12 * sc} v-16 h-5 l9 -11 l9 11 h-5 v16 z`;
+    el.push(<path key={"ar" + i} d={path} fill={ln} opacity=".95" />);
+  });
+  // crossing: full-width zebra band across the road
+  if (s.crossing != null) {
+    const d = s.crossing; const cL = persp(-0.95, d, vpx), cR = persp(0.95, d, vpx); const sc = cL.scale;
+    const span = cR.x - cL.x; const stripes = 8;
+    for (let k = 0; k < stripes; k++) { const x = cL.x + (span / stripes) * k; el.push(<rect key={"cz" + k} x={x} y={cL.y - 4 * sc} width={(span / stripes) * 0.55} height={9 * sc} fill={ln} />); }
+  }
+  if (s.parked) {
+    [[-0.78, 0.1], [-0.78, 0.24], [-0.78, 0.42], [0.82, 0.16], [0.82, 0.34]].forEach((q, i) => { const p = persp(q[0], q[1], vpx); el.push(drawCar(p, "#8893a2", "ahead", "pk" + i)); });
+  }
+
+  /* ----- drawing primitives ----- */
+  function drawCar(p, col, facing, key, opt = {}) {
+    const sc = p.scale, W = 48 * sc, H = 27 * sc, x = p.x, y = p.y, dark = w === "night";
+    const roofW = W * 0.72;
+    const shell = (
+      <g>
+        <ellipse cx={x} cy={y + 2 * sc} rx={W * .54} ry={3 * sc} fill="#000" opacity=".25" />
+        {/* roof/cabin */}
+        <rect x={x - roofW / 2} y={y - H - 9 * sc} width={roofW} height={11 * sc} rx={4 * sc} fill={col} stroke="#262b33" strokeWidth={sc} />
+        {/* body */}
+        <rect x={x - W / 2} y={y - H} width={W} height={H} rx={5 * sc} fill={col} stroke="#262b33" strokeWidth={sc} />
+        {/* wheels peeking */}
+        <rect x={x - W / 2 + 2 * sc} y={y - 5 * sc} width={5 * sc} height={6 * sc} rx={1.5 * sc} fill="#15181d" />
+        <rect x={x + W / 2 - 7 * sc} y={y - 5 * sc} width={5 * sc} height={6 * sc} rx={1.5 * sc} fill="#15181d" />
+      </g>);
+    if (facing === "ahead") return <g key={key}>{shell}
+      {/* rear window */}
+      <rect x={x - roofW / 2 + 3 * sc} y={y - H - 6 * sc} width={roofW - 6 * sc} height={6 * sc} rx={2 * sc} fill={dark ? "#10151c" : "#33414f"} />
+      {/* tail lights (red) */}
+      <rect x={x - W / 2 + 3 * sc} y={y - H + 4 * sc} width={8 * sc} height={6 * sc} rx={1.5 * sc} fill={opt.brake ? "#ff3b3b" : "#b32626"} />
+      <rect x={x + W / 2 - 11 * sc} y={y - H + 4 * sc} width={8 * sc} height={6 * sc} rx={1.5 * sc} fill={opt.brake ? "#ff3b3b" : "#b32626"} />
+      {/* number plate */}
+      <rect x={x - 8 * sc} y={y - 9 * sc} width={16 * sc} height={5 * sc} rx={1 * sc} fill="#e7e9ec" />
+      {opt.signalLeft && <rect x={x - W / 2 + 1 * sc} y={y - H + 4 * sc} width={5 * sc} height={6 * sc} fill="#ffae00" />}
+      {opt.emergency && <><rect x={x - 10 * sc} y={y - H - 13 * sc} width={20 * sc} height={5 * sc} rx={2 * sc} fill="#0a3" /><rect x={x - 10 * sc} y={y - H - 13 * sc} width={10 * sc} height={5 * sc} rx={2 * sc} fill="#2b8bff" /></>}
+    </g>;
+    // oncoming / front
+    return <g key={key}>{shell}
+      {/* windscreen */}
+      <rect x={x - roofW / 2 + 3 * sc} y={y - H - 6 * sc} width={roofW - 6 * sc} height={6 * sc} rx={2 * sc} fill={dark ? "#0e1f33" : "#9fc3e8"} />
+      {/* headlights (pale yellow) */}
+      <circle cx={x - W / 2 + 7 * sc} cy={y - H + 7 * sc} r={3.4 * sc} fill="#fff6c0" stroke="#b9a24e" strokeWidth={.6 * sc} />
+      <circle cx={x + W / 2 - 7 * sc} cy={y - H + 7 * sc} r={3.4 * sc} fill="#fff6c0" stroke="#b9a24e" strokeWidth={.6 * sc} />
+      {/* grille + bumper */}
+      <rect x={x - 9 * sc} y={y - H + 6 * sc} width={18 * sc} height={4 * sc} rx={1 * sc} fill="#2c333c" />
+      <rect x={x - W / 2 + 4 * sc} y={y - 6 * sc} width={W - 8 * sc} height={4 * sc} rx={1.5 * sc} fill="#3a4049" />
+    </g>;
+  }
+  function drawTruck(p, key) {
+    const sc = p.scale, W = 52 * sc, x = p.x, y = p.y, dark = w === "night";
+    return <g key={key}>
+      <ellipse cx={x} cy={y + 2 * sc} rx={W * .56} ry={3 * sc} fill="#000" opacity=".25" />
+      {/* tall box body */}
+      <rect x={x - W / 2} y={y - 52 * sc} width={W} height={36 * sc} rx={3 * sc} fill="#cf3636" stroke="#7a1717" strokeWidth={sc} />
+      {/* cab facing viewer */}
+      <rect x={x - W / 2 + 2 * sc} y={y - 18 * sc} width={W - 4 * sc} height={18 * sc} rx={3 * sc} fill="#b82d2d" stroke="#7a1717" strokeWidth={sc} />
+      {/* windscreen */}
+      <rect x={x - W / 2 + 7 * sc} y={y - 15 * sc} width={W - 14 * sc} height={7 * sc} rx={1.5 * sc} fill={dark ? "#0e1f33" : "#bcd3ea"} />
+      {/* headlights + grille + bumper */}
+      <circle cx={x - W / 3} cy={y - 5 * sc} r={2.8 * sc} fill="#fff6c0" /><circle cx={x + W / 3} cy={y - 5 * sc} r={2.8 * sc} fill="#fff6c0" />
+      <rect x={x - 8 * sc} y={y - 6 * sc} width={16 * sc} height={3 * sc} fill="#2c333c" />
+      <rect x={x - W / 2 + 3 * sc} y={y - 3 * sc} width={W - 6 * sc} height={3 * sc} rx={1 * sc} fill="#3a4049" />
+    </g>;
+  }
+  function drawPed(p, key, opt = {}) {
+    const sc = p.scale, x = p.x, y = p.y, h = 30 * sc, col = opt.col || (w === "night" ? "#eaeef2" : "#1d2733");
+    return <g key={key}>
+      <ellipse cx={x} cy={y + 1.5 * sc} rx={5 * sc} ry={2 * sc} fill="#000" opacity=".2" />
+      <circle cx={x} cy={y - h} r={4 * sc} fill={opt.head || col} />
+      <path d={`M${x} ${y - h + 4 * sc} L${x} ${y - h * .42}`} stroke={col} strokeWidth={3.2 * sc} strokeLinecap="round" />
+      <path d={`M${x} ${y - h + 8 * sc} L${x - 6 * sc} ${y - h + 16 * sc} M${x} ${y - h + 8 * sc} L${x + 6 * sc} ${y - h + 14 * sc}`} stroke={col} strokeWidth={2.6 * sc} strokeLinecap="round" fill="none" />
+      <path d={`M${x} ${y - h * .42} L${x - 5 * sc} ${y} M${x} ${y - h * .42} L${x + 5 * sc} ${y - 2 * sc}`} stroke={col} strokeWidth={2.8 * sc} strokeLinecap="round" fill="none" />
+      {opt.cane && <><line x1={x + 5 * sc} y1={y - h + 14 * sc} x2={x + 13 * sc} y2={y} stroke="#fff" strokeWidth={1.8 * sc} /><circle cx={x + 13 * sc} cy={y} r={1.8 * sc} fill="#fff" /><rect x={x - 4 * sc} y={y - h - 1 * sc} width={8 * sc} height={2.4 * sc} rx={1 * sc} fill="#111" /></>}
+    </g>;
+  }
+  function drawSideCar(p, key, dir) { // side profile on a crossing road; dir 'R' faces right
+    const sc = p.scale, x = p.x, y = p.y, L = 60 * sc, H = 15 * sc, dark = w === "night";
+    const f = dir === "R" ? 1 : -1; // front direction
+    return <g key={key}>
+      <ellipse cx={x} cy={y + 2 * sc} rx={L * .52} ry={2.5 * sc} fill="#000" opacity=".25" />
+      <rect x={x - L / 2} y={y - H} width={L} height={H} rx={4 * sc} fill="#cdd3da" stroke="#262b33" strokeWidth={sc} />
+      <path d={`M${x - L * .26} ${y - H} q${L * .12} ${-11 * sc} ${L * .34} ${-11 * sc} l${L * .16} 0 q${L * .1} 0 ${L * .14} ${11 * sc} z`} fill="#cdd3da" stroke="#262b33" strokeWidth={sc} />
+      <rect x={x - L * .18} y={y - H - 8 * sc} width={L * .42} height={8 * sc} rx={2 * sc} fill={dark ? "#26415e" : "#9fb8d6"} />
+      <circle cx={x - L * .3} cy={y} r={4.5 * sc} fill="#15181d" /><circle cx={x + L * .3} cy={y} r={4.5 * sc} fill="#15181d" />
+      <rect x={f === 1 ? x + L / 2 - 4 * sc : x - L / 2 + 1 * sc} y={y - H + 3 * sc} width={3 * sc} height={4 * sc} fill="#fff6c0" />
+      <rect x={f === 1 ? x - L / 2 + 1 * sc : x + L / 2 - 4 * sc} y={y - H + 3 * sc} width={3 * sc} height={4 * sc} fill="#c0392b" />
+    </g>;
+  }
+  (s.objects || []).forEach((o, i) => {
+    const p = persp(o.lane, o.depth, vpx); const key = "o" + i;
+    switch (o.type) {
+      case "carAhead": el.push(drawCar(p, "#c2cad4", "ahead", key, { brake: o.slow, signalLeft: o.signalLeft })); break;
+      case "carMergeRight": el.push(drawCar(p, "#c2cad4", "ahead", key)); break;
+      case "carOncoming": el.push(drawCar(p, "#dfe4ea", "front", key)); break;
+      case "truckOncoming": el.push(drawTruck(p, key)); break;
+      case "carRight": el.push(<g key={key} transform={`rotate(22 ${p.x} ${p.y})`}>{drawCar(p, "#dfe4ea", "front", key + "i")}</g>); break;
+      case "carLeft": el.push(<g key={key} transform={`rotate(-22 ${p.x} ${p.y})`}>{drawCar(p, "#dfe4ea", "front", key + "i")}</g>); break;
+      case "crossR": el.push(drawSideCar(p, key, "R")); break;
+      case "crossL": el.push(drawSideCar(p, key, "L")); break;
+      case "pedestrian": el.push(drawPed(p, key)); break;
+      case "blind": el.push(drawPed(p, key, { cane: true })); break;
+      case "child": el.push(drawPed({ x: p.x, y: p.y, scale: p.scale * .7 }, key, { col: "#c0392b" })); break;
+      case "ballChild": el.push(<g key={key}><circle cx={p.x} cy={p.y - 4 * p.scale} r={5 * p.scale} fill="#f5a623" stroke="#b5651d" strokeWidth={1.2 * p.scale} /><path d={`M${p.x - 5 * p.scale} ${p.y - 4 * p.scale} h${10 * p.scale} M${p.x} ${p.y - 9 * p.scale} v${10 * p.scale}`} stroke="#b5651d" strokeWidth={.8 * p.scale} /></g>); break;
+      case "cyclist": { const sc = p.scale; el.push(<g key={key} stroke={w === "night" ? "#eaeef2" : "#222"} strokeWidth={2 * sc} fill="none"><circle cx={p.x - 7 * sc} cy={p.y} r={5 * sc} /><circle cx={p.x + 7 * sc} cy={p.y} r={5 * sc} /><path d={`M${p.x - 7 * sc} ${p.y} L${p.x} ${p.y - 2 * sc} L${p.x + 7 * sc} ${p.y} M${p.x} ${p.y - 2 * sc} L${p.x + 2 * sc} ${p.y - 12 * sc}`} /><circle cx={p.x + 3 * sc} cy={p.y - 16 * sc} r={3.4 * sc} fill={w === "night" ? "#eaeef2" : "#222"} /><path d={`M${p.x + 2 * sc} ${p.y - 12 * sc} L${p.x - 4 * sc} ${p.y - 4 * sc}`} /></g>); break; }
+      case "tram": { const sc = p.scale, x = p.x, y = p.y; el.push(<g key={key}><rect x={x - 22 * sc} y={y - 40 * sc} width={44 * sc} height={40 * sc} rx={4 * sc} fill="#1f8a5b" stroke="#0c5a39" strokeWidth={sc} /><rect x={x - 17 * sc} y={y - 34 * sc} width={34 * sc} height={12 * sc} rx={2 * sc} fill="#d4f3e6" /><rect x={x - 6 * sc} y={y - 18 * sc} width={12 * sc} height={18 * sc} fill="#0c5a39" /><circle cx={x} cy={y - 36 * sc} r={2 * sc} fill="#ffd83b" /></g>); break; }
+      case "busStop": { el.push(drawCar({ x: p.x, y: p.y, scale: p.scale * 1.15 }, "#f2c200", "ahead", key, { signalLeft: o.indicating })); break; }
+      case "emergency": el.push(drawCar(p, "#eef1f5", "ahead", key, { emergency: true })); break;
+      default: break;
+    }
+  });
+  // waiting passengers beside a tram (no island) — they step into the lane
+  (s.objects || []).forEach((o, i) => { if (o.type === "tram") { const a = persp(o.lane + 0.35, o.depth - 0.04, vpx), b = persp(o.lane + 0.5, o.depth - 0.07, vpx); el.push(drawPed(a, "tp1" + i)); el.push(drawPed(b, "tp2" + i)); } });
+  // sign on a pole (x clamped so the sign is never clipped by the frame)
+  if (s.sign) { const p = persp(s.sign.lane, s.sign.depth, vpx); const sz = Math.max(40, 58 * p.scale); const sx = Math.min(360 - sz / 2 - 6, Math.max(sz / 2 + 6, p.x)); el.push(<g key="sign"><line x1={sx} y1={p.y} x2={sx} y2={p.y - 30 * p.scale - sz * 0.2} stroke="#8a8f96" strokeWidth={3 * p.scale} /><g transform={`translate(${sx - sz / 2} ${p.y - 30 * p.scale - sz})`}><SignSVG code={s.sign.code} size={sz} /></g></g>); }
+  // traffic light (post on the verge, clear housing, active lamp glows)
+  if (s.light) {
+    const p = persp(s.light.lane, s.light.depth, vpx); const sc = Math.max(0.5, p.scale); const on = s.light.state;
+    const u = 5 * sc, postH = 52 * sc, hx = p.x, baseY = p.y;
+    const housX = hx - 7 * sc, housY = baseY - postH - 26 * sc;
+    const lamp = (cy, lit, col, glow) => (<g><circle cx={hx} cy={cy} r={u} fill={lit ? col : "#1c1f24"} />{lit && <circle cx={hx} cy={cy} r={u * 1.9} fill={glow} opacity=".45" />}</g>);
+    el.push(<g key="lt">
+      <line x1={hx} y1={baseY} x2={hx} y2={baseY - postH} stroke="#697079" strokeWidth={2.6 * sc} />
+      <rect x={housX} y={housY} width={14 * sc} height={26 * sc} rx={3 * sc} fill="#0d0f12" stroke="#000" strokeWidth={sc} />
+      {lamp(housY + 6 * sc, on === "red" || on === "redYellow", "#ff3b3b", "#ff3b3b")}
+      {lamp(housY + 13 * sc, on === "yellow" || on === "yellowFlash" || on === "redYellow", "#ffce29", "#ffce29")}
+      {lamp(housY + 20 * sc, on === "green", "#2fe07a", "#2fe07a")}
+    </g>);
+  }
+
+  // weather overlays
+  if (w === "fog") el.push(<rect key="fog" x="0" y="0" width="360" height={BY + 16} fill="#cfd6db" opacity=".42" />);
+  if (w === "night") el.push(<rect key="ngt" x="0" y="0" width="360" height={BY + 16} fill="#0a1020" opacity=".34" />);
+  if (w === "snow") for (let i = 0; i < 40; i++) el.push(<circle key={"sn" + i} cx={(i * 53) % 360} cy={(i * 37) % BY} r="1.6" fill="#fff" opacity=".85" />);
+  if (w === "rain") for (let i = 0; i < 26; i++) el.push(<line key={"rn" + i} x1={(i * 71) % 360} y1={(i * 29) % BY} x2={(i * 71) % 360 - 4} y2={(i * 29) % BY + 9} stroke="#cfe" strokeWidth="1" opacity=".5" />);
+
+  // ego car: first-person hood + dashboard + wing mirrors (you sit in the right-hand lane)
+  const hoodCol = w === "night" ? "#243042" : "#2f4763";
+  const hl = persp(0.05, 0, vpx).x;   // hood left edge ~ just right of the centre line
+  const hr = 348;                      // hood right edge near the right of frame
+  const hcx = (hl + hr) / 2;
+  el.push(
+    <g key="ego">
+      {/* hood: narrows from the near dashboard (bottom) to its far edge (up), sitting in the right lane */}
+      <path d={`M${hl - 6} ${BY + 16} L${hl + 26} ${BY - 16} Q${hcx} ${BY - 26} ${hr - 24} ${BY - 15} L${hr + 8} ${BY + 16} Z`} fill={hoodCol} stroke="#0c1622" strokeWidth="1.5" />
+      <path d={`M${hcx} ${BY - 25} L${hcx - 4} ${BY + 16}`} stroke="#5e7da0" strokeWidth="1.4" opacity=".5" />
+      <path d={`M${hl + 27} ${BY - 15} Q${hcx} ${BY - 24} ${hr - 25} ${BY - 14}`} stroke="#6f90b5" strokeWidth="1.6" opacity=".55" fill="none" />
+      {/* dashboard lip across the very bottom */}
+      <rect x="0" y={BY + 6} width="360" height="18" fill={w === "night" ? "#0b121c" : "#161d27"} />
+      {/* wing mirrors at the front corners of the hood */}
+      <path d={`M${hl + 22} ${BY - 12} l-16 -3 q-7 -1 -6 5 l1 6 q1 5 7 4 l15 -3 z`} fill={hoodCol} stroke="#0c1622" strokeWidth="1.2" />
+      <path d={`M${hr - 20} ${BY - 11} l16 -3 q7 -1 6 5 l-1 6 q-1 5 -7 4 l-15 -3 z`} fill={hoodCol} stroke="#0c1622" strokeWidth="1.2" />
+    </g>
+  );
+
+  // highlights on reveal
+  if (reveal) (spec.hi || []).forEach((h, i) => {
+    const p = persp(h.x, h.d, vpx); let cy = p.y - 6;
+    if (s.sign && Math.abs(h.x - s.sign.lane) < 0.08 && Math.abs(h.d - s.sign.depth) < 0.08) { const sp = persp(s.sign.lane, s.sign.depth, vpx); const sz = Math.max(40, 58 * sp.scale); cy = sp.y - 30 * sp.scale - sz / 2; p.x = Math.min(360 - sz / 2 - 6, Math.max(sz / 2 + 6, sp.x)); }
+    else if (s.light && Math.abs(h.x - s.light.lane) < 0.1 && Math.abs(h.d - s.light.depth) < 0.1) { const lp = persp(s.light.lane, s.light.depth, vpx); const sc = Math.max(0.5, lp.scale); cy = lp.y - 52 * sc - 13 * sc; }
+    el.push(<circle key={"hi" + i} cx={p.x} cy={cy} r={h.r} fill="none" stroke="#ff4d4d" strokeWidth="3" style={{ animation: "pop .3s ease both" }} />);
+  });
+
+  return (<svg viewBox="0 0 360 240" style={{ width: "100%", display: "block", borderRadius: 12 }}>{el}</svg>);
+}
+
+/* ===================== UI ===================== */
+const TOPIC_ICON = {
+  Priority: "↔️", Roundabouts: "🔄", "Traffic lights": "🚦", "Speed limits": "🏎️",
+  "Winter driving": "❄️", "Road markings": "🛣️", Overtaking: "↗️", Pedestrians: "🚶",
+  Cyclists: "🚲", Emergencies: "🚨", Motorway: "🛤️", "Driver conduct": "🧭",
+  "Road signs": "🪧", Parking: "🅿️", Hazards: "🦌", General: "🌱", Risk: "⚠️",
+  "Commercial mgmt": "🤝", "Financial mgmt": "📊", "Vehicle & traffic law": "📜",
+  Taxation: "🧾", Accounting: "📒", "Employment law": "👷", Wages: "💶",
+  "Social security": "🛡️", Pensions: "👴", Insurance: "☂️",
+};
+const MCQ_TOPICS = [...new Set(MCQ.map((x) => x.t))];
+const TAXI_TOPICS = [...new Set(TAXI.map((x) => x.t))];
+const SIGN_CATS = [...new Set(SIGNS.map((s) => s.cat))];
+const shuffle = (a) => [...a].sort(() => Math.random() - 0.5);
+const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+function Bar({ pct }) { return <div className="track"><div className="fill" style={{ width: `${pct}%` }} /></div>; }
+
+/* ---------- HOME ---------- */
+function Home({ go, best, missed }) {
+  const mode = (id, icon, title, sub, color) => (
+    <button className="btn" onClick={() => go(id)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: "16px 14px", fontSize: 15, textAlign: "left" }}>
+      <span style={{ fontSize: 19, marginRight: 8 }}>{icon}</span>{title}<br /><span style={{ fontWeight: 500, fontSize: 12, color: C.mist }}>{sub}</span>
+    </button>);
+  return (
+    <div className="rev">
+      <div style={{ textAlign: "center", marginBottom: 22 }}>
+        <div className="eye">Teoriakoe · Suomi 🇫🇮</div>
+        <h1 className="dsp" style={{ fontSize: 42, fontWeight: 800, margin: "8px 0 6px" }}>Ajokoe<span style={{ color: C.amber }}>.</span></h1>
+        <p style={{ color: C.mist, margin: 0, fontSize: 14.5, maxWidth: 470, marginInline: "auto" }}>
+          Built around the real Traficom format: 15 multiple-choice, 5 risk, and 50 traffic-situation images, in 30 minutes.
+        </p>
+      </div>
+
+      <button className="btn" onClick={() => go("mockIntro")} style={{ width: "100%", background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: "20px 18px", fontSize: 17, marginBottom: 14, boxShadow: "0 10px 30px rgba(255,106,26,.25)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>⏱️ Full mock exam</span><span style={{ fontWeight: 500, opacity: .8, fontSize: 13 }}>official 70-Q format · 30:00</span></div>
+      </button>
+
+      <div className="eye" style={{ color: C.mist, margin: "4px 0 10px" }}>Practice a section</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+        {mode("mcqPick", "📋", "Multiple choice", `${MCQ.length} questions, by topic`)}
+        {mode("sitRun", "🖼️", "Traffic situations", `random set of 30 · ${SIT.length} scenes`)}
+        {mode("riskRun", "⚠️", "Risk identification", `${RISK.length} scenarios`)}
+        {mode("signHome", "🪧", "Traffic signs", `${SIGNS.length} signs · gallery + test`)}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 22 }}>
+        <button className="btn" onClick={() => go("review")} disabled={!missed} style={{ background: C.panel, border: `1px solid ${C.line}`, color: missed ? C.snow : C.mist, padding: "16px 14px", fontSize: 14.5, textAlign: "left", opacity: missed ? 1 : .55, cursor: missed ? "pointer" : "not-allowed" }}>🔁 Review mistakes<br /><span style={{ fontWeight: 500, fontSize: 12.5, color: C.mist }}>{missed} saved</span></button>
+        <div className="card" style={{ padding: 16, textAlign: "center", display: "grid", placeContent: "center" }}>
+          <span className="eye" style={{ color: C.mist }}>Best mock</span>
+          <span className="dsp" style={{ fontSize: 26, fontWeight: 800, color: C.gold }}>{best == null ? "—" : `${best}%`}</span>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 18 }}>
+        <span style={{ fontSize: 20 }}>ℹ️</span>
+        <p style={{ margin: 0, fontSize: 13, color: C.mist, lineHeight: 1.5 }}>
+          The official test has separate pass limits per section — <b style={{ color: C.snow }}>max 4 wrong</b> of 15 multiple-choice, <b style={{ color: C.snow }}>1</b> of 5 risk, <b style={{ color: C.snow }}>7</b> of 50 situations — and you must pass all three. The real questions aren't public; these drill the same rules. Scene images are schematic sketches.
+        </p>
+      </div>
+
+      <div className="eye" style={{ color: C.mist, margin: "4px 0 10px" }}>Professional licence</div>
+      <button className="btn" onClick={() => go("taxiHome")} style={{ width: "100%", background: `linear-gradient(180deg,#1f8a5b,#0c5a39)`, color: "#eafff5", padding: "18px", fontSize: 16, textAlign: "left" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>🚕 Taxi entrepreneur exam<br /><span style={{ fontWeight: 500, fontSize: 12.5, opacity: .85 }}>Taksiliikennelupa · yrittäjäkoe</span></span><span style={{ fontWeight: 500, fontSize: 12, opacity: .8 }}>50 Q · 35 to pass</span></div>
+      </button>
+    </div>
+  );
+}
+
+/* ---------- shared header ---------- */
+function Head({ left, right, onLeft }) {
+  return <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+    <button className="btn" onClick={onLeft} style={{ background: "transparent", color: C.mist, padding: "8px 4px", fontSize: 14 }}>{left}</button>
+    <span className="eye">{right}</span>
+  </div>;
+}
+
+/* ---------- MCQ PICK + RUN ---------- */
+function McqPick({ start, back }) {
+  return (<div className="rev">
+    <Head left="‹ Home" right="Multiple choice" onLeft={back} />
+    <p style={{ color: C.mist, fontSize: 14, marginTop: 0, marginBottom: 14 }}>Untimed. Each answer explains the reasoning.</p>
+    <button className="btn" onClick={() => start(null)} style={{ width: "100%", background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 15, fontSize: 15, marginBottom: 14 }}>🎲 Mixed — all {MCQ.length}</button>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      {MCQ_TOPICS.map((t) => { const n = MCQ.filter((x) => x.t === t).length; return (<button key={t} className="btn" onClick={() => start(t)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: "14px", fontSize: 14, textAlign: "left" }}>{TOPIC_ICON[t]} {t}<br /><span style={{ fontWeight: 500, fontSize: 12, color: C.mist }}>{n} q</span></button>); })}
+    </div>
+  </div>);
+}
+function McqRun({ deck, label, back, recordMiss }) {
+  const [i, setI] = useState(0), [picked, setPicked] = useState(null), [score, setScore] = useState(0), [done, setDone] = useState(false);
+  const q = deck[i], answered = picked !== null, ok = answered && picked === q.a;
+  function choose(idx) { if (answered) return; setPicked(idx); if (idx === q.a) setScore((s) => s + 1); else recordMiss(q); }
+  function next() { if (i + 1 >= deck.length) return setDone(true); setI(i + 1); setPicked(null); }
+  if (done) return <Score pct={Math.round(score / deck.length * 100)} sub={`${score} of ${deck.length}`} back={back} />;
+  return (<div>
+    <Head left="‹ Exit" right={`${TOPIC_ICON[q.t]} ${label}`} onLeft={back} />
+    <div className="card" style={{ padding: "12px 16px", marginBottom: 14 }}><div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span className="eye">Q {i + 1}/{deck.length}</span><span className="dsp num" style={{ fontWeight: 700, color: C.gold, fontSize: 14 }}>{score} ✓</span></div><Bar pct={(i + 1) / deck.length * 100} /></div>
+    <div className="card" style={{ padding: "20px 18px", marginBottom: 14 }}><div className="eye" style={{ color: C.blue, marginBottom: 8 }}>{q.t}</div><h2 className="dsp" style={{ fontSize: 20, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>{q.q}</h2></div>
+    <div style={{ display: "grid", gap: 10 }}>{q.o.map((opt, idx) => { let bg, bd; if (answered) { if (idx === q.a) { bg = C.greenDeep; bd = C.green; } else if (idx === picked) { bg = C.redDeep; bd = C.red; } } return (<button key={idx} className="opt" disabled={answered} onClick={() => choose(idx)} style={bg ? { background: bg, borderColor: bd } : undefined}><span className="key" style={answered && idx === q.a ? { background: C.green, color: "#04130c", borderColor: C.green } : answered && idx === picked ? { background: C.red, color: "#1a040a", borderColor: C.red } : undefined}>{answered && idx === q.a ? "✓" : answered && idx === picked ? "✕" : ["A", "B", "C", "D"][idx]}</span><span>{opt}</span></button>); })}</div>
+    {answered && <div className="card rev" style={{ marginTop: 14, padding: 18, borderColor: ok ? C.green : C.red }}><div className="dsp" style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: ok ? C.green : C.red }}>{ok ? "✓ Correct" : "✕ Not quite"}</div><p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{q.w}</p><button className="btn" onClick={next} style={{ width: "100%", marginTop: 14, background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 14, fontSize: 15 }}>{i + 1 >= deck.length ? "See score →" : "Next →"}</button></div>}
+  </div>);
+}
+
+/* ---------- SITUATIONS (Yes/No image) ---------- */
+function SituationRun({ deck, back, recordMiss, retry }) {
+  const [i, setI] = useState(0), [picked, setPicked] = useState(null), [score, setScore] = useState(0), [done, setDone] = useState(false);
+  const sp = deck[i], answered = picked !== null, ok = answered && picked === sp.a;
+  function choose(val) { if (answered) return; setPicked(val); if (val === sp.a) setScore((s) => s + 1); else recordMiss({ q: sp.prop, w: sp.w, t: "Situation", o: ["Yes", "No"], a: sp.a ? 0 : 1 }); }
+  function next() { if (i + 1 >= deck.length) return setDone(true); setI(i + 1); setPicked(null); }
+  if (done) { const pass = score >= Math.ceil(deck.length * 0.86); return <Score pct={Math.round(score / deck.length * 100)} sub={`${score} of ${deck.length} correct`} pass={pass} passText={pass ? `Pass — at or above ${Math.ceil(deck.length * 0.86)}/${deck.length}` : `Below pass mark (${Math.ceil(deck.length * 0.86)}/${deck.length} needed)`} back={back} retry={retry} />; }
+  return (<div>
+    <Head left="‹ Exit" right={`🖼️ Situation ${i + 1}/${deck.length}`} onLeft={back} />
+    <div className="card" style={{ padding: 12, marginBottom: 12 }}><Bar pct={(i + 1) / deck.length * 100} /></div>
+    <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden", marginBottom: 14 }}><Scene spec={sp} reveal={answered} /></div>
+    <div className="card" style={{ padding: "16px 18px", marginBottom: 14 }}><span className="eye" style={{ color: C.amberSoft }}>True or false?</span><p className="dsp" style={{ margin: "8px 0 0", fontSize: 18, fontWeight: 700, lineHeight: 1.35 }}>{sp.prop}</p></div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <button className="yn" disabled={answered} onClick={() => choose(true)} style={{ background: answered ? (sp.a === true ? C.green : (picked === true ? "#5a2230" : "#1e3a33")) : C.green, color: answered && !(sp.a === true) && picked !== true ? C.mist : "#04130c" }}>YES</button>
+      <button className="yn" disabled={answered} onClick={() => choose(false)} style={{ background: answered ? (sp.a === false ? C.green : (picked === false ? "#5a2230" : "#3a1e24")) : C.red, color: answered ? (sp.a === false ? "#04130c" : "#fff") : "#1a040a" }}>NO</button>
+    </div>
+    {answered && <div className="card rev" style={{ marginTop: 14, padding: 18, borderColor: ok ? C.green : C.red }}><div className="dsp" style={{ fontWeight: 700, fontSize: 16, marginBottom: 8, color: ok ? C.green : C.red }}>{ok ? "✓ Correct" : "✕ Incorrect answer"}</div><p style={{ margin: 0, fontSize: 15, lineHeight: 1.5 }}>{sp.w}</p><button className="btn" onClick={next} style={{ width: "100%", marginTop: 14, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 14, fontSize: 15 }}>{i + 1 >= deck.length ? "See score →" : "Next situation →"}</button></div>}
+  </div>);
+}
+
+/* ---------- SCORE CARD ---------- */
+function Score({ pct, sub, back, pass, passText, retry }) {
+  const col = pass == null ? C.gold : pass ? C.green : C.red;
+  return (<div className="rev" style={{ textAlign: "center" }}>
+    <div className="eye" style={{ marginBottom: 12 }}>Set complete</div>
+    <div className="card" style={{ padding: 30, marginBottom: 16, borderColor: pass == null ? C.line : col }}>
+      <div className="dsp" style={{ fontSize: 56, fontWeight: 800, color: col }}>{pct}%</div>
+      <div style={{ color: C.mist, marginTop: 4 }}>{sub}</div>
+      {passText && <div className="dsp" style={{ marginTop: 12, fontSize: 16, fontWeight: 700, color: col }}>{pass ? "🎉 " : ""}{passText}</div>}
+    </div>
+    <div style={{ display: "flex", gap: 10 }}>
+      {retry && <button className="btn" onClick={retry} style={{ flex: 1, background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 15, fontSize: 15 }}>↻ New set of 30</button>}
+      <button className="btn" onClick={back} style={{ flex: 1, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 15, fontSize: 15 }}>⌂ Done</button>
+    </div>
+  </div>);
+}
+
+/* ---------- MOCK (official format) ---------- */
+function MockIntro({ start, back }) {
+  return (<div className="rev">
+    <Head left="‹ Home" right="Mock exam" onLeft={back} />
+    <div className="card" style={{ padding: 24 }}>
+      <h2 className="dsp" style={{ fontSize: 25, fontWeight: 800, margin: "0 0 14px" }}>The real format</h2>
+      <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+        {[["📋 Multiple choice", "15 questions", "max 4 wrong"], ["⚠️ Risk identification", "5 questions", "max 1 wrong"], ["🖼️ Traffic situations", `${Math.min(50, SIT.length)} image sketches`, "Yes / No"]].map(([a, b, c], k) => (
+          <div key={k} className="card" style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center", background: C.panelHi }}><span style={{ fontSize: 14.5, fontWeight: 600 }}>{a}<br /><span style={{ color: C.mist, fontWeight: 400, fontSize: 12.5 }}>{b}</span></span><span className="eye" style={{ color: C.amberSoft }}>{c}</span></div>
+        ))}
+      </div>
+      <p style={{ color: C.mist, fontSize: 13, lineHeight: 1.5, marginTop: 0 }}>A single <b style={{ color: C.snow }}>30-minute</b> clock runs across all three. Answers are hidden until the end, and you must clear every section's error limit to pass.</p>
+      <button className="btn" onClick={start} style={{ width: "100%", background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 16, fontSize: 16 }}>Start the clock →</button>
+    </div>
+  </div>);
+}
+
+function Mock({ onDone, onQuit }) {
+  const exam = useMemo(() => {
+    const mc = shuffle(MCQ).slice(0, 15).map((q) => ({ kind: "mcq", q }));
+    const rk = shuffle(RISK).slice(0, 5).map((q) => ({ kind: "mcq", q }));
+    const st = shuffle(SIT).slice(0, Math.min(50, SIT.length)).map((q) => ({ kind: "sit", q }));
+    return [...mc, ...rk, ...st];
+  }, []);
+  const counts = { mcq: 15, risk: 5, sit: Math.min(50, SIT.length) };
+  const [i, setI] = useState(0), [ans, setAns] = useState({}), [flag, setFlag] = useState({}), [left, setLeft] = useState(30 * 60), [grid, setGrid] = useState(false);
+  const doneRef = useRef(false);
+  useEffect(() => { const id = setInterval(() => setLeft((l) => { if (l <= 1) { clearInterval(id); if (!doneRef.current) { doneRef.current = true; submit(); } return 0; } return l - 1; }), 1000); return () => clearInterval(id); }, []); // eslint-disable-line
+  const item = exam[i];
+  function pick(v) { setAns((a) => ({ ...a, [i]: v })); }
+  function submit() {
+    const sec = { mcq: { ok: 0, n: 0 }, risk: { ok: 0, n: 0 }, sit: { ok: 0, n: 0 } };
+    const results = exam.map((it, k) => {
+      let correct, chosen = ans[k];
+      if (it.kind === "sit") { correct = chosen === it.q.a; }
+      else { correct = chosen === it.q.a; }
+      const bucket = it.kind === "sit" ? "sit" : (it.q.t === "Risk" ? "risk" : "mcq");
+      sec[bucket].n++; if (correct) sec[bucket].ok++;
+      return { it, chosen, correct, bucket };
+    });
+    onDone({ sec, results, total: exam.length });
+  }
+  const low = left <= 60;
+  const isMcq = item.kind === "mcq";
+  const sectionLabel = item.kind === "sit" ? "Traffic situation" : (item.q.t === "Risk" ? "Risk identification" : "Multiple choice");
+  return (<div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <button className="btn" onClick={onQuit} style={{ background: "transparent", color: C.mist, padding: "8px 4px", fontSize: 14 }}>‹ Quit</button>
+      <div className="dsp num" style={{ fontWeight: 800, fontSize: 20, color: low ? C.red : C.gold, animation: low ? "pulse 1s infinite" : "none" }}>⏱ {fmt(left)}</div>
+      <button className="btn" onClick={() => setGrid((g) => !g)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: "8px 12px", fontSize: 13 }}>{grid ? "Close" : "Grid"}</button>
+    </div>
+    <Bar pct={(i + 1) / exam.length * 100} />
+    {grid ? (
+      <div className="card rev" style={{ padding: 18, marginTop: 14 }}>
+        <div className="eye" style={{ marginBottom: 12, color: C.mist }}>{Object.keys(ans).length}/{exam.length} answered</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 7 }}>{exam.map((_, k) => { const d = ans[k] != null, fl = flag[k]; return <button key={k} className="btn" onClick={() => { setI(k); setGrid(false); }} style={{ aspectRatio: "1", background: k === i ? C.blue : d ? C.greenDeep : C.panelHi, border: `1px solid ${fl ? C.gold : C.line}`, color: C.snow, fontSize: 12, padding: 0 }}>{k + 1}</button>; })}</div>
+        <button className="btn" onClick={submit} style={{ width: "100%", marginTop: 16, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 15, fontSize: 16 }}>Submit exam</button>
+      </div>
+    ) : (<div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span className="eye" style={{ color: C.blue }}>{sectionLabel}</span><span className="eye" style={{ color: C.mist }}>Q{i + 1}/{exam.length}</span></div>
+      {item.kind === "sit" && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden", marginBottom: 12 }}><Scene spec={item.q} reveal={false} /></div>}
+      <div className="card" style={{ padding: "18px", marginBottom: 14 }}><h2 className="dsp" style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>{isMcq ? item.q.q : item.q.prop}</h2></div>
+      {item.kind === "sit" ? (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <button className="yn" onClick={() => pick(true)} style={{ background: ans[i] === true ? C.blue : C.green, color: "#04130c" }}>YES</button>
+          <button className="yn" onClick={() => pick(false)} style={{ background: ans[i] === false ? C.blue : C.red, color: "#1a040a" }}>NO</button>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>{item.q.o.map((opt, idx) => { const on = ans[i] === idx; return <button key={idx} className="opt" onClick={() => pick(idx)} style={on ? { borderColor: C.blue, background: "#193859" } : undefined}><span className="key" style={on ? { background: C.blue, color: "#04111f", borderColor: C.blue } : undefined}>{["A", "B", "C", "D"][idx]}</span><span>{opt}</span></button>; })}</div>
+      )}
+      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        <button className="btn" disabled={i === 0} onClick={() => setI(i - 1)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: i === 0 ? C.mist : C.snow, padding: "13px 16px", fontSize: 14, opacity: i === 0 ? .5 : 1 }}>‹</button>
+        <button className="btn" onClick={() => setFlag((f) => ({ ...f, [i]: !f[i] }))} style={{ background: flag[i] ? C.gold : C.panel, border: `1px solid ${flag[i] ? C.gold : C.line}`, color: flag[i] ? "#1a1402" : C.snow, padding: "13px 16px", fontSize: 14 }}>⚑</button>
+        {i < exam.length - 1 ? <button className="btn" onClick={() => setI(i + 1)} style={{ flex: 1, background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 13, fontSize: 15 }}>Next ›</button>
+          : <button className="btn" onClick={submit} style={{ flex: 1, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 13, fontSize: 15 }}>Submit exam</button>}
+      </div>
+    </div>)}
+  </div>);
+}
+
+function MockResult({ data, onHome, onRetry, onReview }) {
+  const limits = { mcq: 4, risk: 1, sit: 7 };
+  const names = { mcq: "Multiple choice", risk: "Risk identification", sit: "Traffic situations" };
+  const sections = ["mcq", "risk", "sit"].filter((k) => data.sec[k].n > 0);
+  const sectionPass = (k) => (data.sec[k].n - data.sec[k].ok) <= limits[k];
+  const passed = sections.every(sectionPass);
+  const totalOk = sections.reduce((s, k) => s + data.sec[k].ok, 0);
+  const wrong = data.results.filter((r) => !r.correct).length;
+  return (<div className="rev">
+    <div className="eye" style={{ marginBottom: 14, textAlign: "center" }}>Exam complete</div>
+    <div className="card" style={{ padding: "26px 22px", marginBottom: 16, textAlign: "center", borderColor: passed ? C.green : C.red }}>
+      <div className="dsp" style={{ fontSize: 30, fontWeight: 800, color: passed ? C.green : C.red }}>{passed ? "🎉 PASS" : "✕ NOT YET"}</div>
+      <div style={{ color: C.mist, marginTop: 6, fontSize: 14 }}>{totalOk} of {data.total} correct overall</div>
+    </div>
+    <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+      <div className="eye" style={{ marginBottom: 12, color: C.mist }}>Each section must pass on its own</div>
+      <div style={{ display: "grid", gap: 12 }}>{sections.map((k) => { const v = data.sec[k], wr = v.n - v.ok, p = sectionPass(k); return (<div key={k}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 13.5, marginBottom: 5 }}><span>{names[k]}</span><span style={{ color: p ? C.green : C.red, fontWeight: 700 }}>{p ? "PASS" : "FAIL"} · {wr} wrong / max {limits[k]}</span></div><div className="track"><div className="fill" style={{ width: `${v.ok / v.n * 100}%`, background: p ? C.green : C.red }} /></div></div>); })}</div>
+    </div>
+    <div style={{ display: "flex", gap: 10 }}>
+      {wrong > 0 && <button className="btn" onClick={onReview} style={{ flex: 1, background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: 15, fontSize: 14 }}>Review {wrong}</button>}
+      <button className="btn" onClick={onRetry} style={{ flex: 1, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 15, fontSize: 14 }}>↻ New</button>
+      <button className="btn" onClick={onHome} style={{ flex: 1, background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: 15, fontSize: 14 }}>⌂ Home</button>
+    </div>
+  </div>);
+}
+
+function MockReview({ results, back }) {
+  const wrong = results.filter((r) => !r.correct);
+  return (<div className="rev">
+    <Head left="‹ Results" right="What to revise" onLeft={back} />
+    <div style={{ display: "grid", gap: 12 }}>{wrong.map((r, k) => {
+      const it = r.it; const isSit = it.kind === "sit";
+      const qText = isSit ? it.q.prop : it.q.q;
+      const correctText = isSit ? (it.q.a ? "Yes" : "No") : it.q.o[it.q.a];
+      const yourText = r.chosen == null ? "— (blank)" : isSit ? (r.chosen ? "Yes" : "No") : it.q.o[r.chosen];
+      return (<div key={k} className="card" style={{ padding: 16, borderColor: C.red }}>
+        {isSit && <div style={{ border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden", marginBottom: 10 }}><Scene spec={it.q} reveal /></div>}
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10 }}>{qText}</div>
+        <div style={{ fontSize: 13.5, color: C.red, marginBottom: 4 }}>Your answer: {yourText}</div>
+        <div style={{ fontSize: 13.5, color: C.green, marginBottom: 10 }}>Correct: {correctText}</div>
+        <div style={{ background: C.night, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 13.5, color: C.mist, lineHeight: 1.5 }}>{it.q.w}</div>
+      </div>);
+    })}</div>
+  </div>);
+}
+
+/* ---------- SIGN GALLERY ---------- */
+function SignHome({ go, back }) {
+  return (<div className="rev">
+    <Head left="‹ Home" right="Traffic signs" onLeft={back} />
+    <p style={{ color: C.mist, fontSize: 14, marginTop: 0, marginBottom: 16 }}>{SIGNS.length} Finnish signs. Local quirk: warning and speed/prohibitory signs sit on a <b style={{ color: YEL }}>yellow</b> background.</p>
+    <div style={{ display: "grid", gap: 12 }}>
+      <button className="btn" onClick={() => go("signBrowse")} style={{ background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 18, fontSize: 16, textAlign: "left" }}>🗂️ Browse & flip<br /><span style={{ fontWeight: 500, fontSize: 12.5, opacity: .85 }}>Tap a sign to reveal its meaning</span></button>
+      <button className="btn" onClick={() => go("signQuiz")} style={{ background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 18, fontSize: 16, textAlign: "left" }}>🎯 Test me on signs<br /><span style={{ fontWeight: 500, fontSize: 12.5, opacity: .8 }}>See a sign, pick the meaning</span></button>
+    </div>
+  </div>);
+}
+function SignBrowse({ back }) {
+  const [cat, setCat] = useState("All"), [flip, setFlip] = useState(null);
+  const list = cat === "All" ? SIGNS : SIGNS.filter((s) => s.cat === cat);
+  return (<div className="rev">
+    <Head left="‹ Signs" right={`${list.length} signs`} onLeft={back} />
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>{["All", ...SIGN_CATS].map((k) => <button key={k} className={"chip" + (cat === k ? " on" : "")} onClick={() => { setCat(k); setFlip(null); }}>{k}</button>)}</div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(132px,1fr))", gap: 12 }}>{list.map((s) => (
+      <div key={s.c} onClick={() => setFlip(flip === s.c ? null : s.c)}>{flip === s.c ? (
+        <div className="card rev" style={{ padding: 13, minHeight: 148, cursor: "pointer", borderColor: C.blue }}><div className="dsp" style={{ fontSize: 13, fontWeight: 700, color: C.gold, marginBottom: 6 }}>{s.n}</div><div style={{ fontSize: 12, color: C.mist, lineHeight: 1.4 }}>{s.m}</div></div>
+      ) : (
+        <div className="signtile" style={{ minHeight: 148, gap: 8, flexDirection: "column" }}><SignSVG code={s.c} size={78} /><div style={{ fontSize: 11, color: BLK, fontWeight: 600, textAlign: "center", lineHeight: 1.2 }}>{s.n}</div></div>
+      )}</div>))}</div>
+    <p style={{ color: C.mist, fontSize: 12.5, marginTop: 16, textAlign: "center" }}>Tap a sign to flip · tap again to flip back</p>
+  </div>);
+}
+function SignQuiz({ back }) {
+  const [deck] = useState(() => shuffle(SIGNS));
+  const [i, setI] = useState(0), [picked, setPicked] = useState(null), [score, setScore] = useState(0), [done, setDone] = useState(false);
+  const s = deck[i];
+  const opts = useMemo(() => shuffle([s.n, ...shuffle(SIGNS.filter((x) => x.c !== s.c)).slice(0, 3).map((x) => x.n)]), [i]); // eslint-disable-line
+  const answered = picked !== null, ok = answered && picked === s.n;
+  function choose(n) { if (answered) return; setPicked(n); if (n === s.n) setScore((x) => x + 1); }
+  function next() { if (i + 1 >= deck.length) return setDone(true); setI(i + 1); setPicked(null); }
+  if (done) return <Score pct={Math.round(score / deck.length * 100)} sub={`${score} of ${deck.length} signs`} back={back} />;
+  return (<div>
+    <Head left="‹ Exit" right={`${score} · ${i + 1}/${deck.length}`} onLeft={back} />
+    <Bar pct={(i + 1) / deck.length * 100} />
+    <div className="dsp" style={{ textAlign: "center", fontWeight: 700, fontSize: 16, margin: "16px 0 12px" }}>What does this sign mean?</div>
+    <div className="signtile" style={{ width: 144, height: 144, margin: "0 auto 18px", cursor: "default" }}><SignSVG code={s.c} size={112} /></div>
+    <div style={{ display: "grid", gap: 10 }}>{opts.map((n) => { let bg, bd; if (answered) { if (n === s.n) { bg = C.greenDeep; bd = C.green; } else if (n === picked) { bg = C.redDeep; bd = C.red; } } return <button key={n} className="opt" disabled={answered} onClick={() => choose(n)} style={bg ? { background: bg, borderColor: bd } : undefined}><span>{n}</span></button>; })}</div>
+    {answered && <div className="card rev" style={{ marginTop: 14, padding: 16, borderColor: ok ? C.green : C.red }}><div className="dsp" style={{ fontWeight: 700, fontSize: 15, marginBottom: 6, color: ok ? C.green : C.red }}>{ok ? "✓ Correct" : `✕ It's: ${s.n}`}</div><p style={{ margin: 0, fontSize: 14, color: C.mist, lineHeight: 1.5 }}>{s.m}</p><button className="btn" onClick={next} style={{ width: "100%", marginTop: 12, background: `linear-gradient(180deg,${C.blue},#2a6ddb)`, color: "#fff", padding: 13, fontSize: 15 }}>{i + 1 >= deck.length ? "See score →" : "Next sign →"}</button></div>}
+  </div>);
+}
+
+/* ---------- TAXI ENTREPRENEUR SECTION ---------- */
+function TaxiHome({ go, startTopic, best }) {
+  const dist = [["Commercial mgmt", 8], ["Financial mgmt", 9], ["Vehicle & traffic law", 4], ["Taxation", 5], ["Accounting", 4], ["Employment law", 4], ["Wages", 4], ["Social security", 4], ["Pensions", 4], ["Insurance", 4]];
+  return (<div className="rev">
+    <Head left="‹ Home" right="🚕 Yrittäjäkoe" onLeft={() => go("home")} />
+    <div className="card" style={{ padding: 22, marginBottom: 14, borderColor: "#1f8a5b" }}>
+      <div className="eye" style={{ color: "#5fe0a8" }}>Taksiliikennelupa</div>
+      <h2 className="dsp" style={{ fontSize: 24, fontWeight: 800, margin: "8px 0 6px" }}>Taxi entrepreneur exam</h2>
+      <p style={{ color: C.mist, fontSize: 13.5, lineHeight: 1.5, margin: 0 }}>The business licence exam: <b style={{ color: C.snow }}>50 multiple-choice questions, ≥35 to pass</b>, 2 hours. Covers running a taxi company, not driving.</p>
+    </div>
+    <button className="btn" onClick={() => go("taxiMock")} style={{ width: "100%", background: "linear-gradient(180deg,#1f8a5b,#0c5a39)", color: "#eafff5", padding: "18px", fontSize: 16, marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><span>⏱️ Full mock exam</span><span style={{ fontWeight: 500, fontSize: 12.5, opacity: .85 }}>50 Q · 2:00:00 · 35 to pass</span></div>
+    </button>
+    {best != null && <div style={{ textAlign: "center", marginBottom: 14, color: C.mist, fontSize: 13 }}>Best: <b style={{ color: C.gold }}>{best}/50</b></div>}
+    <div className="eye" style={{ color: C.mist, margin: "4px 0 10px" }}>Practice by topic <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(official weighting in the exam)</span></div>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+      {dist.map(([t, n]) => (<button key={t} className="btn" onClick={() => startTopic(t)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: "13px 12px", fontSize: 13.5, textAlign: "left" }}>{TOPIC_ICON[t]} {t}<br /><span style={{ fontWeight: 500, fontSize: 11.5, color: C.mist }}>{TAXI.filter((x) => x.t === t).length} q · {n} in exam</span></button>))}
+    </div>
+    <div className="card" style={{ padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+      <span style={{ fontSize: 20 }}>ℹ️</span>
+      <p style={{ margin: 0, fontSize: 12.5, color: C.mist, lineHeight: 1.5 }}>
+        The official yrittäjäkoe is taken <b style={{ color: C.snow }}>only in Finnish or Swedish</b> after completing the ~21-hour entrepreneur training, at a Traficom-approved organisation. Questions aren't public, so this drills the same ten topic areas in English for study. Verify figures (tax rates, thresholds) before your exam, as they change.
+      </p>
+    </div>
+  </div>);
+}
+
+function TaxiMock({ onDone, onQuit }) {
+  const deck = useMemo(() => shuffle(TAXI).slice(0, 50), []);
+  const [i, setI] = useState(0), [ans, setAns] = useState({}), [flag, setFlag] = useState({}), [left, setLeft] = useState(120 * 60), [grid, setGrid] = useState(false);
+  const doneRef = useRef(false);
+  useEffect(() => { const id = setInterval(() => setLeft((l) => { if (l <= 1) { clearInterval(id); if (!doneRef.current) { doneRef.current = true; submit(); } return 0; } return l - 1; }), 1000); return () => clearInterval(id); }, []); // eslint-disable-line
+  function submit() { const byTopic = {}; let score = 0; const results = deck.map((q, k) => { const correct = ans[k] === q.a; if (correct) score++; (byTopic[q.t] ??= { ok: 0, n: 0 }); byTopic[q.t].n++; if (correct) byTopic[q.t].ok++; return { q, chosen: ans[k] ?? null, correct }; }); onDone({ score, total: deck.length, byTopic, results }); }
+  const q = deck[i]; const low = left <= 120;
+  const hh = Math.floor(left / 3600), mm = Math.floor((left % 3600) / 60), ss = left % 60;
+  const clock = `${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+  return (<div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+      <button className="btn" onClick={onQuit} style={{ background: "transparent", color: C.mist, padding: "8px 4px", fontSize: 14 }}>‹ Quit</button>
+      <div className="dsp num" style={{ fontWeight: 800, fontSize: 18, color: low ? C.red : C.gold, animation: low ? "pulse 1s infinite" : "none" }}>⏱ {clock}</div>
+      <button className="btn" onClick={() => setGrid((g) => !g)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: "8px 12px", fontSize: 13 }}>{grid ? "Close" : "Grid"}</button>
+    </div>
+    <Bar pct={(i + 1) / deck.length * 100} />
+    {grid ? (
+      <div className="card rev" style={{ padding: 18, marginTop: 14 }}>
+        <div className="eye" style={{ marginBottom: 12, color: C.mist }}>{Object.keys(ans).length}/{deck.length} answered</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 7 }}>{deck.map((_, k) => { const d = ans[k] != null, fl = flag[k]; return <button key={k} className="btn" onClick={() => { setI(k); setGrid(false); }} style={{ aspectRatio: "1", background: k === i ? "#1f8a5b" : d ? C.greenDeep : C.panelHi, border: `1px solid ${fl ? C.gold : C.line}`, color: C.snow, fontSize: 12, padding: 0 }}>{k + 1}</button>; })}</div>
+        <button className="btn" onClick={submit} style={{ width: "100%", marginTop: 16, background: "linear-gradient(180deg,#1f8a5b,#0c5a39)", color: "#eafff5", padding: 15, fontSize: 16 }}>Submit exam</button>
+      </div>
+    ) : (<div style={{ marginTop: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}><span className="eye" style={{ color: "#5fe0a8" }}>{TOPIC_ICON[q.t]} {q.t}</span><span className="eye" style={{ color: C.mist }}>Q{i + 1}/{deck.length}</span></div>
+      <div className="card" style={{ padding: "18px", marginBottom: 14 }}><h2 className="dsp" style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.3, margin: 0 }}>{q.q}</h2></div>
+      <div style={{ display: "grid", gap: 10 }}>{q.o.map((opt, idx) => { const on = ans[i] === idx; return <button key={idx} className="opt" onClick={() => setAns((a) => ({ ...a, [i]: idx }))} style={on ? { borderColor: "#1f8a5b", background: "#143b2c" } : undefined}><span className="key" style={on ? { background: "#1f8a5b", color: "#eafff5", borderColor: "#1f8a5b" } : undefined}>{["A", "B", "C", "D"][idx]}</span><span>{opt}</span></button>; })}</div>
+      <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+        <button className="btn" disabled={i === 0} onClick={() => setI(i - 1)} style={{ background: C.panel, border: `1px solid ${C.line}`, color: i === 0 ? C.mist : C.snow, padding: "13px 16px", fontSize: 14, opacity: i === 0 ? .5 : 1 }}>‹</button>
+        <button className="btn" onClick={() => setFlag((f) => ({ ...f, [i]: !f[i] }))} style={{ background: flag[i] ? C.gold : C.panel, border: `1px solid ${flag[i] ? C.gold : C.line}`, color: flag[i] ? "#1a1402" : C.snow, padding: "13px 16px", fontSize: 14 }}>⚑</button>
+        {i < deck.length - 1 ? <button className="btn" onClick={() => setI(i + 1)} style={{ flex: 1, background: "linear-gradient(180deg,#1f8a5b,#0c5a39)", color: "#eafff5", padding: 13, fontSize: 15 }}>Next ›</button>
+          : <button className="btn" onClick={submit} style={{ flex: 1, background: `linear-gradient(180deg,${C.amber},#e6560f)`, color: "#1a0a02", padding: 13, fontSize: 15 }}>Submit exam</button>}
+      </div>
+    </div>)}
+  </div>);
+}
+
+function TaxiResult({ data, onHome, onRetry, onReview }) {
+  const passed = data.score >= 35;
+  const wrong = data.results.filter((r) => !r.correct).length;
+  return (<div className="rev">
+    <div className="eye" style={{ marginBottom: 14, textAlign: "center" }}>Yrittäjäkoe complete</div>
+    <div className="card" style={{ padding: "26px 22px", marginBottom: 16, textAlign: "center", borderColor: passed ? C.green : C.red }}>
+      <div className="dsp" style={{ fontSize: 52, fontWeight: 800, color: passed ? C.green : C.red }}>{data.score}<span style={{ fontSize: 26, color: C.mist }}>/50</span></div>
+      <div className="dsp" style={{ marginTop: 8, fontSize: 20, fontWeight: 700, color: passed ? C.green : C.red }}>{passed ? "🎉 PASS" : "✕ Below 35"}</div>
+      <div style={{ color: C.mist, marginTop: 4, fontSize: 13 }}>Pass mark: 35 of 50 correct</div>
+    </div>
+    <div className="card" style={{ padding: 18, marginBottom: 16 }}>
+      <div className="eye" style={{ marginBottom: 12, color: C.mist }}>By topic</div>
+      <div style={{ display: "grid", gap: 10 }}>{Object.entries(data.byTopic).sort((a, b) => (a[1].ok / a[1].n) - (b[1].ok / b[1].n)).map(([t, v]) => { const p = Math.round(v.ok / v.n * 100); return (<div key={t}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 5 }}><span>{TOPIC_ICON[t]} {t}</span><span style={{ color: p >= 70 ? C.green : p >= 50 ? C.gold : C.red }}>{v.ok}/{v.n}</span></div><div className="track"><div className="fill" style={{ width: `${p}%`, background: p >= 70 ? C.green : p >= 50 ? C.gold : C.red }} /></div></div>); })}</div>
+    </div>
+    <div style={{ display: "flex", gap: 10 }}>
+      {wrong > 0 && <button className="btn" onClick={onReview} style={{ flex: 1, background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: 15, fontSize: 14 }}>Review {wrong}</button>}
+      <button className="btn" onClick={onRetry} style={{ flex: 1, background: "linear-gradient(180deg,#1f8a5b,#0c5a39)", color: "#eafff5", padding: 15, fontSize: 14 }}>↻ New</button>
+      <button className="btn" onClick={onHome} style={{ flex: 1, background: C.panel, border: `1px solid ${C.line}`, color: C.snow, padding: 15, fontSize: 14 }}>⌂ Home</button>
+    </div>
+  </div>);
+}
+
+function TaxiReview({ results, back }) {
+  const wrong = results.filter((r) => !r.correct);
+  return (<div className="rev">
+    <Head left="‹ Results" right="What to revise" onLeft={back} />
+    <div style={{ display: "grid", gap: 12 }}>{wrong.map((r, k) => (
+      <div key={k} className="card" style={{ padding: 16, borderColor: C.red }}>
+        <div className="eye" style={{ color: "#5fe0a8", marginBottom: 6 }}>{TOPIC_ICON[r.q.t]} {r.q.t}</div>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10 }}>{r.q.q}</div>
+        <div style={{ fontSize: 13.5, color: C.red, marginBottom: 4 }}>Your answer: {r.chosen == null ? "— (blank)" : r.q.o[r.chosen]}</div>
+        <div style={{ fontSize: 13.5, color: C.green, marginBottom: 10 }}>Correct: {r.q.o[r.q.a]}</div>
+        <div style={{ background: C.night, border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 13.5, color: C.mist, lineHeight: 1.5 }}>{r.q.w}</div>
+      </div>))}</div>
+  </div>);
+}
+
+/* ---------- APP ---------- */
+function App() {
+  const [view, setView] = useState("home");
+  const [deck, setDeck] = useState([]), [label, setLabel] = useState("");
+  const [mock, setMock] = useState(null), [best, setBest] = useState(null), [missed, setMissed] = useState([]);
+  const [taxiMock, setTaxiMock] = useState(null), [taxiBest, setTaxiBest] = useState(null);
+  const [sitKey, setSitKey] = useState(0);
+  const go = (v) => { if (v === "review") return startReview(); if (v === "sitRun") { setDeck(shuffle(SIT).slice(0, 30)); setSitKey((k) => k + 1); return setView("sitRun"); } if (v === "riskRun") { setDeck(shuffle(RISK)); return setView("riskRun"); } setView(v); };
+  function recordMiss(q) { setMissed((m) => (m.some((x) => x.q === q.q) ? m : [...m, q])); }
+  function startMcq(t) { setDeck(shuffle(t ? MCQ.filter((x) => x.t === t) : MCQ)); setLabel(t || "Mixed"); setView("mcqRun"); }
+  function startReview() { if (!missed.length) return; setDeck(shuffle(missed)); setLabel("Your mistakes"); setView("mcqRun"); }
+  function startTaxiTopic(t) { setDeck(shuffle(TAXI.filter((x) => x.t === t))); setLabel(t); setView("taxiPractice"); }
+  function finishMock(d) {
+    setMock(d); setView("mockResult");
+    const tot = Object.values(d.sec).reduce((s, x) => s + x.n, 0), ok = Object.values(d.sec).reduce((s, x) => s + x.ok, 0);
+    const pct = Math.round(ok / tot * 100); setBest((b) => b == null ? pct : Math.max(b, pct));
+    setMissed((m) => { const add = d.results.filter((r) => !r.correct).map((r) => r.it.kind === "sit" ? { q: r.it.q.prop, w: r.it.q.w, t: "Situation", o: ["Yes", "No"], a: r.it.q.a ? 0 : 1 } : r.it.q); const ids = new Set(m.map((x) => x.q)); return [...m, ...add.filter((x) => !ids.has(x.q))]; });
+  }
+  function finishTaxiMock(d) { setTaxiMock(d); setView("taxiResult"); setTaxiBest((b) => b == null ? d.score : Math.max(b, d.score)); }
+  return (<div className="rt"><Styles /><div className="wrap">
+    {view === "home" && <Home go={go} best={best} missed={missed.length} />}
+    {view === "mockIntro" && <MockIntro start={() => setView("mock")} back={() => go("home")} />}
+    {view === "mock" && <Mock onDone={finishMock} onQuit={() => go("home")} />}
+    {view === "mockResult" && mock && <MockResult data={mock} onHome={() => go("home")} onRetry={() => setView("mockIntro")} onReview={() => setView("mockReview")} />}
+    {view === "mockReview" && mock && <MockReview results={mock.results} back={() => setView("mockResult")} />}
+    {view === "mcqPick" && <McqPick start={startMcq} back={() => go("home")} />}
+    {view === "mcqRun" && <McqRun deck={deck} label={label} back={() => go(label === "Your mistakes" ? "home" : "mcqPick")} recordMiss={recordMiss} />}
+    {view === "sitRun" && <SituationRun key={sitKey} deck={deck} back={() => go("home")} recordMiss={recordMiss} retry={() => go("sitRun")} />}
+    {view === "riskRun" && <McqRun deck={deck} label="Risk identification" back={() => go("home")} recordMiss={recordMiss} />}
+    {view === "signHome" && <SignHome go={go} back={() => go("home")} />}
+    {view === "signBrowse" && <SignBrowse back={() => go("signHome")} />}
+    {view === "signQuiz" && <SignQuiz back={() => go("signHome")} />}
+    {view === "taxiHome" && <TaxiHome go={go} startTopic={startTaxiTopic} best={taxiBest} />}
+    {view === "taxiPractice" && <McqRun deck={deck} label={label} back={() => go("taxiHome")} recordMiss={() => { }} />}
+    {view === "taxiMock" && <TaxiMock onDone={finishTaxiMock} onQuit={() => go("taxiHome")} />}
+    {view === "taxiResult" && taxiMock && <TaxiResult data={taxiMock} onHome={() => go("home")} onRetry={() => setView("taxiMock")} onReview={() => setView("taxiReview")} />}
+    {view === "taxiReview" && taxiMock && <TaxiReview results={taxiMock.results} back={() => setView("taxiResult")} />}
+  </div></div>);
+}
+
+
+
+const _root = ReactDOM.createRoot(document.getElementById("root"));
+_root.render(React.createElement(App));
+const _boot = document.getElementById("boot");
+if (_boot) { _boot.style.opacity = "0"; setTimeout(() => _boot.remove(), 450); }
+</script>
+</body>
+</html>
